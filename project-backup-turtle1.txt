@@ -1,0 +1,520 @@
+PROJECT BACKUP - ICHESS TURTLE 1
+Generated for project root: co-vua
+Current project shape: static web app with index.html, style.css, script.js, local chess.js
+
+============================================================
+1. TONG QUAN PROJECT
+============================================================
+
+Day la game co vua web viet bang HTML/CSS/JavaScript thuan.
+
+File chinh:
+- index.html: cau truc UI, board area, panels, controls, mode selectors.
+- style.css: layout 3 cot, theme sang/toi, board, pieces, coordinates, panels.
+- script.js: toan bo game state, render, input handling, bots, Turtle 1 rules.
+- chess.js: thu vien chess.js local, khong dung CDN.
+
+Thu vien:
+- chess.js local duoc load truoc script.js.
+- chess.js phu trach luat co vua chuan o mode Local 2 Players va Player vs Bot chuan.
+- Turtle 1 co pseudo-legal move rieng de cho phep an Vua, khong lam ro ri sang mode chuan.
+
+Triet ly giao duc Ichess:
+- Khong dich "Ichess".
+- Khong dich "Turtle 1".
+- Turtle 1 la lop hoc dau tien, tap trung vao quan sat, gia tri quan, an quan, phong thu co ban.
+- Turtle 1 co the cho phep mat/an Vua de tre thay hau qua truc tiep.
+- Mode chuan van phai giu dung chess.js de sau nay co the dung cho online.
+
+============================================================
+2. CORE MODES
+============================================================
+
+2.1 Local 2 Players
+- Mode value: local
+- Dung luat chess.js chuan.
+- KHONG cho an Vua.
+- KHONG dung capture king logic.
+- Co check, checkmate, draw/stalemate theo chess.js.
+- Khong duoc di nuoc lam Vua bi chieu.
+- Undo/Redo: moi lan undo/redo 1 half-move nhu chess app co ban.
+- Premove van co trong local mode.
+- Right-click annotations, drag/drop, promotion, history, flip board van hoat dong.
+
+2.2 Player vs Bot
+- Mode value: bot
+- Dung chess.js chuan.
+- Player chon mau w/b.
+- Bot di sau delay ~300ms khi toi luot bot.
+- Bot khong di neu game over.
+- Premove tat trong bot mode de tranh nhieu.
+- Undo/Redo trong bot mode:
+  - Undo 1 lan lui 1 cap nuoc neu co: bot move + player move.
+  - Neu player cam den va moi co nuoc bot mo dau, undo lui 1 nuoc bot.
+  - Redo 1 lan replay lai ca cap nuoc neu co.
+  - Redo khong schedule bot di them nua.
+
+Bot standard difficulties:
+- Random: chooseRandomMove()
+- Greedy: chooseGreedyMove()
+- Minimax: getBestMove(game), minimax depth 2 ply.
+
+2.3 Turtle 1 Capture King modes
+- Mode value: turtle-newborn, turtle-standard.
+- UI VI:
+  - Turtle 1 - So sinh
+  - Turtle 1 - Thi len lop
+- UI EN:
+  - Turtle 1 - Newborn
+  - Turtle 1 - Promotion Test
+- Turtle 1 dung pseudo-legal rules rieng.
+- Cho phep an Vua.
+- Khong dung check/checkmate chuan.
+- Khong highlight do Vua khi bi chieu.
+- Khong bat buoc thoat chieu.
+- Neu Vua bi an, van ket thuc ngay.
+- Sau khi capture king, khong cho di tiep tru khi Undo hoac Reset.
+- Legal move highlight tat trong Turtle 1.
+- Premove tat trong Turtle 1.
+
+============================================================
+3. TURTLE 1 LOGIC
+============================================================
+
+3.1 Turtle 1 - So sinh
+Muc tieu:
+- Hoc cach di quan.
+- Hoc an quan.
+- Hoc gia tri quan.
+
+Bot:
+- De, nhung khong qua ngo ngan.
+- Luon an Vua neu co.
+- Uu tien an quan mien phi/gia tri cao.
+- Tranh tu lam lo Vua.
+- Tranh tu dua Hau vao o bi an ngay qua ro.
+- Neu khong co tactic, uu tien phat trien Ma/Tuong don gian.
+
+3.2 Turtle 1 - Thi len lop
+Muc tieu:
+- Kiem tra hoc sinh da nam kien thuc Turtle 1 chua.
+- Gia tri quan.
+- An hon quan.
+- Nhin quan khong duoc bao ve.
+- Tranh o khong an toan.
+- Phong thu co ban.
+- Bao ve Vua.
+
+Bot:
+- Khong phai engine manh.
+- Cam giac khoang beginner/200-400 Elo.
+- Khong bo lo an Vua.
+- Khong bo lo an Hau/Xe mien phi lon.
+- Khong tu thi Hau/Xe vo ly neu co lua chon an toan.
+- Neu Vua dang nguy hiem, uu tien cuu Vua.
+- Co the chon trong top candidates de van yeu co kiem soat.
+
+3.3 Luat an Vua
+- chess.js chuan khong cho an Vua.
+- Turtle 1 dung getTurtlePseudoMovesFrom() va getAllTurtlePseudoMoves().
+- isKingCaptureMove(from, to) chi return true trong isTurtle1Mode().
+- makeTurtleMove() co guard: neu khong phai Turtle 1 thi return false.
+- endByKingCapture() co guard: neu khong phai Turtle 1 thi return.
+
+3.4 Xac dinh thang/thua
+- winnerColor la mau quan vua an duoc Vua.
+- Neu winnerColor === playerColor:
+  - VI: "Tuyet voi! Con da quan sat tot va an duoc Vua roi 🎉"
+  - EN: "Great job! You observed well and captured the King 🎉"
+- Neu bot an Vua nguoi choi:
+  - VI: "Oi mat Vua roi :< Lan sau nho quan sat truoc khi di nha!"
+  - EN: "Oh no, the King was captured :< Remember to observe before moving!"
+- Neutral local capture king text ton tai trong translations nhung khong duoc dung trong Local 2 Players chuan.
+
+3.5 Undo sau capture king
+- Turtle 1 undo dung turtleMoveHistory.
+- Neu undo sau khi mat/an Vua:
+  - turtleGameOver = false
+  - turtleWinner = null
+  - game load ve fenBefore cua move da undo.
+  - Game tiep tuc duoc.
+- Undo counter tang 1 moi lan undo thanh cong trong Turtle 1, du undo lui 1 hoac 2 half-moves.
+
+============================================================
+4. BOT LOGIC
+============================================================
+
+4.1 Standard bots
+- chooseRandomMove(): random tu game.moves({ verbose: true }).
+- chooseGreedyMove(): uu tien capture co value cao nhat, neu khong co thi random.
+- evaluateBoard(game): tong diem trang - den.
+- minimax(game, depth, isMaximizing): dung game.move() va game.undo().
+- getBestMove(game): chon move tot nhat voi depth 2 ply.
+
+4.2 Turtle 1 bot functions
+- chooseTurtle1NewbornBotMove()
+- chooseTurtle1StandardBotMove()
+- chooseTurtle1PromotionTestBotMove()
+- scoreTurtle1PromotionTestMove(move)
+- isSquareAttackedBasic(square, byColor)
+- isKingUnderBasicThreat(color)
+- getKingSquare(color)
+- getKingSafetyScore(color)
+- doesMoveExposeKingToCapture(move, color)
+- findKingDefenseMoves(color)
+- getAttackersOfSquare(square, byColor)
+- findHighValuePiecesUnderAttack(color)
+- moveLooksSafe(move)
+- countDevelopedMinorPieces(color)
+- isBackRankRookMove(move, piece)
+- centerBonus(square)
+- debugTurtleCandidates(label, scoredMoves)
+
+4.3 Scoring constants
+- KING_CAPTURE_SCORE = 10000
+- KING_DANGER_PENALTY = 5000
+- QUEEN_BLUNDER_PENALTY = 900
+- ROOK_BLUNDER_PENALTY = 420
+- FREE_CAPTURE_BONUS = 130
+- PROFITABLE_TRADE_BONUS = 90
+- DEVELOPMENT_BONUS = 30
+- REPEATED_PIECE_PENALTY = 35
+- EARLY_ROOK_MOVE_PENALTY = 55
+- EARLY_QUEEN_MOVE_PENALTY = 45
+- DEBUG_TURTLE_BOT = false
+
+4.4 Cach evaluate Turtle 1 move
+scoreTurtle1PromotionTestMove(move) tinh diem dua tren:
+- An Vua: diem rat lon, return ngay.
+- Move lam lo Vua bi an: phat KING_DANGER_PENALTY.
+- Neu Vua dang bi de doa va move xu ly duoc: cong diem lon.
+- An quan mien phi: FREE_CAPTURE_BONUS + gia tri quan.
+- Trao doi co loi: PROFITABLE_TRADE_BONUS + chenhlech value.
+- An Hau/Xe mien phi: bonus rat lon de khong bo lo.
+- Move bi an lai boi quan re hon/bang diem: phat manh.
+- Di Hau khong capture qua som: EARLY_QUEEN_MOVE_PENALTY.
+- Di Xe qua lai/back rank khong can thiet: EARLY_ROOK_MOVE_PENALTY.
+- Di cung quan lien tiep/reverse move: REPEATED_PIECE_PENALTY.
+- Phat trien Ma/Tuong tu hang nha: DEVELOPMENT_BONUS.
+- Trung tam: centerBonus().
+
+4.5 Bao ve Vua
+- isKingUnderBasicThreat(color): Vua dang bi tan cong bang pseudo moves.
+- doesMoveExposeKingToCapture(move, color): gia lap move roi xem Vua co bi an ngay khong.
+- findKingDefenseMoves(color): loc moves khong lam Vua bi an.
+- Turtle 1 - Thi len lop:
+  - Neu Vua dang bi de doa va co defense moves, chi xet defense moves.
+  - Uu tien an quan dang de doa, chay Vua an toan, hoac che/bao ve neu scoring thay tot.
+
+4.6 Tranh mat Hau/Xe
+- moveLooksSafe(move): xem quan vua di co bi an ngay khong.
+- findHighValuePiecesUnderAttack(color): tim Hau/Xe/Vua dang bi tan cong.
+- Phat manh neu move bo qua Hau dang bi de doa.
+- Phat rat manh neu Hau/Xe di vao o khong an toan.
+
+4.7 Random co kiem soat
+- Turtle 1 - Thi len lop co the chon trong top 2 candidates neu diem gan nhau.
+- Khong random khi:
+  - An Vua.
+  - An Hau/Xe mien phi diem lon.
+  - Cuu Vua.
+  - Tranh mat Hau/Xe lon.
+
+============================================================
+5. UI/UX
+============================================================
+
+5.1 Layout
+- 3 cot desktop:
+  - Trai: Move history.
+  - Giua: Board + coordinates.
+  - Phai: Settings/controls.
+- Mobile:
+  - Board tren.
+  - Settings giua.
+  - History duoi.
+
+5.2 Board coordinates
+- rankCoordinates: so 1-8 ben trai board.
+- fileCoordinates: chu a-h ben duoi board.
+- renderCoordinates() update theo boardFlipped.
+- Toa do nam ngoai board, khong nam trong o co.
+
+5.3 Drag/drop
+- Pointer events: pointerdown, pointermove, pointerup.
+- dragGhostElement: quan ghost position fixed, pointer-events none.
+- dragFromSquare, draggedPiece, isDragging quan ly state.
+- Drop ngoai board huy.
+
+5.4 Click-to-move
+- selectedSquare + legalMoves.
+- Mode chuan dung game.moves() cua chess.js.
+- Turtle 1 tat legal highlight nhung van giu selected square.
+
+5.5 Premove
+- Chi dung o mode chuan/local.
+- Bot mode va Turtle 1 tat premove.
+- setPremove(), clearPremove(), tryExecutePremove().
+- isLegalPremove() validate bang temp Chess tu FEN, doi active color ro rang.
+
+5.6 Highlight
+- selected square.
+- legal move/capture highlight o mode chuan.
+- last move highlight.
+- checked king highlight chi mode chuan, khong Turtle 1.
+- premove highlight o mode co premove.
+
+5.7 Move history
+- Standard modes: game.history({ verbose: true }) cua chess.js, SAN goc.
+- Turtle 1: turtleMoveHistory rieng, san custom tu buildTurtleSan().
+- formatMoveSAN(san, locale):
+  - EN: SAN goc.
+  - VI: K->V, Q->H, R->X, B->T, N->M.
+- Turtle custom khong dung format e2e4; dung e4, exd5, Nf3/Mf3, Bb5/Tb5, R/X, Q/H, K/V.
+
+5.8 Promotion
+- isPromotionMove(from, to)
+- showPromotionPicker(from, to, options)
+- Premove promotion default Queen de sau nay nang cap.
+
+5.9 Undo/Redo
+- Local 2 Players: 1 half-move.
+- Player vs Bot: 1 lan undo/redo theo cap player+bot neu co.
+- Turtle 1 bot: dung turtleMoveHistory/turtleRedoStack, undo theo cap, undo counter tang 1 moi lan thanh cong.
+- Redo khong tang undo counter.
+- Neu di nuoc moi sau undo, redo stack bi xoa.
+
+5.10 Annotation
+- Right click circle.
+- Right drag arrow.
+- SVG annotation-layer.
+- clearAnnotations() khi left click/drag.
+
+5.11 Language EN/VI
+- translations object.
+- t(key, params).
+- updateLanguageUI().
+- setLanguage(lang).
+- localStorage key: chessLanguage.
+- Khong nhap chung voi Notation EN/VI.
+
+5.12 Theme dark/light
+- loadTheme(), applyTheme(), setTheme().
+- localStorage key: chessTheme.
+- body.dark-theme CSS variables.
+- Board mau giu ro rang.
+- Pieces co white-piece/black-piece class + shadow.
+- Status dark mode khong dung nen trang cho cac state.
+
+5.13 Sound
+- playMoveSound(type)
+- Web Audio API.
+- Sound On/Off button.
+
+5.14 Message giao duc Turtle 1
+- turtleKingLost
+- turtleKingCapturedByPlayer
+- undoCounter
+- invalidPremove
+- Khong hard-code ngoai translations.
+
+============================================================
+6. CAC HAM QUAN TRONG VA LUU Y KHONG DUOC PHA
+============================================================
+
+File: script.js
+
+Mode/rules:
+- getCurrentMode(): tra ve currentMode. Khong doi value mode tuy tien.
+- isTurtle1Mode(): chi true voi turtle-newborn/turtle-standard. Moi capture king phai guard bang ham nay.
+- isTurtle1NewbornMode(): nhan Turtle 1 - So sinh.
+- isTurtle1StandardMode(): nhan Turtle 1 - Thi len lop.
+- getLearningSettings(): showLegalMoves false trong Turtle 1, premove false trong Turtle 1.
+- isBotTurn(): nhan mode bot va Turtle 1 bot; khong schedule khi game over/capture king.
+- scheduleBotMove(): delay bot 300ms.
+- makeBotMove(): re nhanh standard bots vs Turtle bots.
+- applyGameSettings(): reset game, clear state, flip board neu player den trong bot/Turtle.
+
+Standard chess:
+- makeMove(moveData, options): Neu isTurtle1Mode() thi route sang makeTurtleMove; neu khong thi chess.js game.move().
+- isPromotionMove(), showPromotionPicker(): phai dung cho standard promotion.
+- findCheckedKingSquare(): phai return null trong Turtle 1, standard van highlight check.
+
+Turtle 1:
+- getTurtlePseudoMovesFrom(from): generator pseudo moves cho Turtle 1, cho phep an Vua.
+- getAllTurtlePseudoMoves(color): thu thap pseudo moves tu board row/col; KHONG dung piece.square vi local chess.js khong co.
+- isKingCaptureMove(from, to): phai return false neu !isTurtle1Mode().
+- makeTurtleMove(moveData, options): phai return false neu !isTurtle1Mode().
+- endByKingCapture(winnerColor): phai return neu !isTurtle1Mode().
+- clearLearningState(): reset turtleGameOver, turtleWinner, turtleMoveHistory, turtleRedoStack, undoCount, lastBotMove.
+- buildTurtleSan(): format lich su Turtle, khong de e2e4.
+
+Turtle bots:
+- chooseTurtle1NewbornBotMove(): bot de nhung khong qua ngo.
+- scoreTurtle1PromotionTestMove(move): scoring chinh cua Turtle 1 - Thi len lop.
+- chooseTurtle1PromotionTestBotMove(): chon move dua tren scoring va top candidates.
+- chooseTurtle1StandardBotMove(): wrapper goi chooseTurtle1PromotionTestBotMove(), giu compatibility.
+- DEBUG_TURTLE_BOT: false mac dinh, bat true de log candidates.
+
+Undo/Redo:
+- undoMove(): Local standard 1 half-move; bot/Turtle theo cap.
+- redoMove(): Local standard 1 half-move; bot/Turtle theo cap.
+- updateLastMoveFromHistory(): dung cho standard mode.
+
+UI/render:
+- renderBoard(): render pieces, selected, legal moves, last move, premove, checked king, coordinates.
+- renderCoordinates(): flip a-h/1-8 theo boardFlipped.
+- renderMoveHistory(): chon turtleMoveHistory neu Turtle, game.history() neu standard.
+- formatMoveSAN(san, locale): notation EN/VI, khong lien quan language UI.
+- updateLanguageUI(): update text UI theo language.
+- applyTheme(): body.dark-theme.
+- flipBoard(): dao boardFlipped va render lai.
+- drawAnnotations(): SVG arrows/circles.
+- handleSquareClick(), handleDragAndDrop(): phai giu guard Turtle/standard rieng.
+
+============================================================
+7. CACH BUILD LAI PROJECT TU DAU
+============================================================
+
+Files can co:
+- index.html
+- style.css
+- script.js
+- chess.js
+
+Thu vien:
+- chess.js local UMD/global build, expose Chess.
+- index.html load:
+  1. chess.js
+  2. script.js
+
+Thu tu khoi tao:
+1. HTML tao cac element co id:
+   - board, status
+   - promotionModal, promotionPicker
+   - rankCoordinates, fileCoordinates
+   - modeSelect, playerColorSelect, botDifficultySelect
+   - applySettingsButton
+   - undoButton, redoButton, flipButton, soundButton, notationButton, languageButton, themeButton, resetButton
+   - moveHistory
+   - appTitle, labels/titles
+2. script.js DOMContentLoaded.
+3. Kiem tra typeof Chess.
+4. Khoi tao const game = new Chess().
+5. Load language/theme tu localStorage.
+6. updateLanguageUI(), applyTheme(), renderBoard().
+
+Kiem tra nhanh:
+- node --check script.js
+- Live Server mo index.html.
+- Console phai co:
+  - script.js loaded
+  - chess.js loaded
+  - board rendered
+
+Manual smoke tests:
+- Local 2 Players: e2-e4, e7-e5, check/checkmate van chuan.
+- Player vs Bot white: e2-e4, bot di sau 300ms.
+- Player vs Bot black: Start, bot white di truoc.
+- Turtle 1 newborn: e2-e4, bot di sau 300ms, legal highlights tat.
+- Turtle 1 promotion test: bot uu tien an Vua/cuu Vua/an quan tot.
+- Undo/Redo bot: undo/redo 1 lan theo cap.
+- Capture king chi Turtle 1.
+- Language EN/VI va Notation EN/VI doc lap.
+- Theme dark/light luu localStorage.
+- Flip board dao toa do va click van dung.
+
+============================================================
+8. RUI RO CAN NHO
+============================================================
+
+1. Khong de Capture King ro sang mode chuan.
+- Local 2 Players la mode chuan cho online tuong lai.
+- makeTurtleMove(), isKingCaptureMove(), endByKingCapture() phai guard isTurtle1Mode().
+- Standard move phai qua chess.js game.move().
+
+2. Khong pha Local 2 Players.
+- Khong dung pseudo-legal Turtle moves trong local.
+- Khong tat check/checkmate/draw trong local.
+- Khong cho an Vua trong local.
+
+3. Khong refactor lon khi dang polish.
+- File script.js hien lon nhung on dinh.
+- Neu refactor sau nay, can tach module co test rieng.
+
+4. Khong bien Turtle bot thanh engine manh.
+- Turtle 1 bot la giao duc, khong phai Stockfish.
+- Promotion Test bot can bat loi co ban nhung van co diem yeu co kiem soat.
+
+5. Khong lam hong Undo/Redo.
+- Bot mode undo/redo theo cap.
+- Local undo/redo tung half-move.
+- Turtle undo counter chi tang khi undo thanh cong.
+- Redo khong tang counter.
+
+6. Khong lam hong state sau capture king.
+- Sau capture king: turtleGameOver true, khong cho di tiep.
+- Undo phai clear turtleGameOver va cho tiep tuc.
+- Reset phai clearLearningState().
+
+7. Khong lam hong UI language/theme.
+- Language UI va notation la 2 he rieng.
+- Dark mode khong duoc lam status/button/select bi chim.
+- Coordinates phai flip theo board.
+
+8. chess.js local khong co piece.square trong game.board().
+- Turtle move generation phai dung boardArraySquare(row, col).
+
+============================================================
+9. CURRENT FILE RESPONSIBILITIES
+============================================================
+
+index.html:
+- Static skeleton.
+- 3-column layout order.
+- Board frame with rank/file coordinates.
+- Promotion modal.
+- Mode/settings controls.
+
+style.css:
+- Layout 3 cot va mobile.
+- Board, squares, highlights.
+- Theme CSS variables.
+- Dark mode contrast.
+- Coordinates outside board.
+- Panels/buttons/select/status.
+
+script.js:
+- All runtime state.
+- Standard chess rules through chess.js.
+- Turtle 1 pseudo rules.
+- Bot logic.
+- UI rendering.
+- Input handling.
+- Undo/redo.
+- Language/theme.
+- Sound.
+- Annotation.
+
+chess.js:
+- Local chess.js build.
+- Do not edit unless replacing with compatible global Chess build.
+
+============================================================
+10. RESTORE CHECKLIST
+============================================================
+
+1. Copy index.html, style.css, script.js, chess.js into new root.
+2. Open index.html via Live Server.
+3. Check console for load logs.
+4. Run:
+   node --check script.js
+5. Test Local 2 Players first.
+6. Test Player vs Bot.
+7. Test Turtle 1 newborn.
+8. Test Turtle 1 promotion test.
+9. Test capture king only in Turtle 1.
+10. Test undo/redo pairs in bot modes.
+11. Test language, notation, theme, flip, coordinates.
+
+END OF BACKUP

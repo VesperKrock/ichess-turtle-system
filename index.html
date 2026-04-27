@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cờ Vua</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="chess.js" defer></script>
+  <script src="bots/turtle1.js" defer></script>
+  <script src="bots/turtle2.js" defer></script>
+  <script src="bots/turtle3.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1 id="appTitle">Cờ Vua</h1>
+    <div id="status">Đang tải...</div>
+    <section class="game-layout">
+      <aside class="history-panel">
+        <h2 id="movesTitle">Lịch sử nước đi</h2>
+        <div id="moveHistory"></div>
+      </aside>
+      <div class="board-area">
+        <div class="board-frame">
+          <div id="rankCoordinates" class="rank-coordinates"></div>
+          <div id="board"></div>
+          <div id="fileCoordinates" class="file-coordinates"></div>
+        </div>
+        <div id="promotionModal" class="promotion-modal hidden">
+          <div id="promotionPicker" class="promotion-picker"></div>
+        </div>
+      </div>
+      <aside class="side-panel">
+        <div class="mode-panel">
+          <label>
+            <span id="modeLabel">Chế độ</span>
+            <select id="modeSelect">
+              <option value="local">2 người cùng máy</option>
+              <option value="bot">Người chơi vs Máy</option>
+              <option value="turtle-newborn">Turtle 1 - Sơ sinh</option>
+              <option value="turtle-standard">Turtle 1 - Thi lên lớp</option>
+              <option value="turtle-2">Turtle 2 - Thi lên lớp</option>
+              <option value="turtle-3">Turtle 3 - Thi lên lớp</option>
+            </select>
+          </label>
+          <label>
+            <span id="playerLabel">Người chơi</span>
+            <select id="playerColorSelect">
+              <option value="w">Trắng</option>
+              <option value="b">Đen</option>
+            </select>
+          </label>
+          <label>
+            <span id="botLabel">Máy</span>
+            <select id="botDifficultySelect">
+              <option value="random">Random</option>
+              <option value="greedy">Greedy</option>
+              <option value="minimax">Minimax</option>
+            </select>
+          </label>
+          <button id="applySettingsButton" type="button">Bắt đầu / Áp dụng</button>
+        </div>
+        <div class="controls">
+          <button id="undoButton" type="button">Hoàn tác</button>
+          <button id="redoButton" type="button">Làm lại</button>
+          <button id="flipButton" type="button">Lật bàn cờ</button>
+          <button id="soundButton" type="button">Âm thanh Bật</button>
+          <button id="legalMovesButton" type="button">Nước hợp lệ: Bật</button>
+          <button id="notationButton" type="button">Ký hiệu: EN</button>
+          <button id="languageButton" type="button">Ngôn ngữ: VI</button>
+          <button id="themeButton" type="button">Giao diện: Sáng</button>
+          <button id="resetButton" type="button">Chơi lại</button>
+        </div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

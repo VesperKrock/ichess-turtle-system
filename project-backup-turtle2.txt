@@ -1,0 +1,758 @@
+PROJECT BACKUP - ICHESS TURTLE 2
+Generated for project root: co-vua
+Purpose: Full backup and handoff after Turtle 2 is considered complete, before Turtle 3 begins.
+
+============================================================
+1. TỔNG QUAN PROJECT
+============================================================
+
+Ichess là game cờ vua giáo dục chạy trên web, viết bằng:
+- HTML
+- CSS
+- JavaScript thuần
+- chess.js local
+
+Mục tiêu của project là dạy cờ vua theo từng level học tập, không phải tạo engine cờ vua mạnh.
+Bot trong các level Turtle được thiết kế để giúp học sinh học luật, quan sát, tránh lỗi cơ bản,
+và hiểu dần các khái niệm chiến thuật. Bot có thể yếu có kiểm soát.
+
+Triết lý quan trọng:
+- Local 2 Players và Player vs Bot chuẩn phải giữ luật chess.js chuẩn.
+- Turtle 1 dùng luật giáo dục Capture King riêng.
+- Turtle 2 dùng luật Vua thật hơn, dựa trên chess.js legal moves.
+- Level mới phải được guard riêng, không làm rò logic giữa các mode.
+
+============================================================
+2. CẤU TRÚC FILE HIỆN TẠI
+============================================================
+
+Root project hiện có:
+- index.html
+- style.css
+- script.js
+- chess.js
+- bots/turtle1.js
+- bots/turtle2.js
+- project-backup-turtle1.txt
+- project-backup-turtle2.txt
+- handoff.txt
+
+Vai trò file:
+- index.html: HTML skeleton, board area, panels, controls, mode select, load script.
+- style.css: layout, theme sáng/tối, board, pieces, highlights, warning visuals, annotations.
+- script.js: UI/gameplay chính, mode switching, render, input, undo/redo, history, language/theme, gọi bot.
+- chess.js: thư viện luật cờ vua chuẩn local. Không sửa.
+- bots/turtle1.js: bot/scoring/helper Turtle 1.
+- bots/turtle2.js: bot/scoring/helper Turtle 2.
+- project-backup-turtle1.txt: backup sau Turtle 1.
+- handoff.txt: handoff cũ, hiện chỉ là placeholder ngắn từ Turtle 1 sang Turtle 2.
+
+============================================================
+3. LOAD ORDER TRONG index.html
+============================================================
+
+index.html load scripts theo thứ tự:
+1. chess.js
+2. bots/turtle1.js
+3. bots/turtle2.js
+4. script.js
+
+Lý do:
+- chess.js phải có global Chess trước.
+- Turtle bot files expose hàm qua window.*.
+- script.js chạy cuối, tạo game state và cung cấp Turtle1BotContext/Turtle2BotContext.
+
+Nếu thêm Turtle 3, load order dự kiến:
+1. chess.js
+2. bots/turtle1.js
+3. bots/turtle2.js
+4. bots/turtle3.js
+5. script.js
+
+============================================================
+4. CÁC MODE HIỆN CÓ
+============================================================
+
+4.1 local
+Tên VI: 2 người cùng máy
+Tên EN: Local 2 Players
+
+Luật:
+- Dùng chess.js legal move chuẩn.
+- Có check, checkmate, draw/stalemate theo chess.js.
+- Không Capture King.
+- Không dùng Turtle pseudo moves.
+
+Bot:
+- Không có bot.
+
+Undo/Redo:
+- Undo/redo từng half-move bằng game.undo() và redoStack.
+
+Premove:
+- Có premove trong local mode.
+
+4.2 bot
+Tên VI: Người chơi vs Máy
+Tên EN: Player vs Bot
+
+Luật:
+- Dùng chess.js legal move chuẩn.
+- Không Capture King.
+
+Bot:
+- Random: chooseRandomMove()
+- Greedy: chooseGreedyMove()
+- Minimax: getBestMove(game), minimax depth nhẹ.
+
+Undo/Redo:
+- Undo/redo theo cặp player + bot nếu có.
+- Nếu người chơi cầm Đen và bot vừa đi mở đầu, undo có thể chỉ lùi một nước bot.
+- Redo không schedule thêm bot move ngoài nhóm redo.
+
+Premove:
+- Tắt trong bot mode.
+
+4.3 turtle-newborn
+Tên VI: Turtle 1 - Sơ sinh
+Tên EN: Turtle 1 - Newborn
+
+Luật:
+- Capture King giáo dục.
+- Không dùng check/checkmate chuẩn.
+- Cho phép ăn Vua.
+- Ai ăn Vua là thắng.
+- Không dùng chess.js legal moves cho gameplay chính của Turtle 1.
+- Dùng pseudo-legal Turtle moves trong script.js.
+
+Bot:
+- bots/turtle1.js.
+- chooseTurtle1NewbornBotMove().
+
+Undo/Redo:
+- Dùng turtleMoveHistory/turtleRedoStack.
+- Undo theo nhóm phù hợp bot mode.
+- Undo sau khi ăn/mất Vua sẽ clear turtleGameOver/turtleWinner và load lại fenBefore.
+
+4.4 turtle-standard
+Tên VI: Turtle 1 - Thi lên lớp
+Tên EN: Turtle 1 - Promotion Test
+
+Luật:
+- Capture King giáo dục.
+- Không dùng check/checkmate chuẩn.
+- Cho phép ăn Vua.
+- Ai ăn Vua là thắng.
+- Không dùng chess.js legal moves cho gameplay chính của Turtle 1.
+
+Bot:
+- bots/turtle1.js.
+- chooseTurtle1StandardBotMove().
+- Wrapper gọi chooseTurtle1PromotionTestBotMove().
+
+Undo/Redo:
+- Dùng turtleMoveHistory/turtleRedoStack.
+- Undo theo nhóm player + bot nếu có.
+- Redo replay các fenAfter của Turtle moves.
+
+4.5 turtle-2
+Tên VI: Turtle 2 - Thi lên lớp
+Tên EN: Turtle 2 - Promotion Test
+
+Luật:
+- Dùng chess.js legal move chuẩn.
+- Không Capture King bình thường.
+- Không cho nước đi làm Vua bị chiếu theo luật chuẩn.
+- Học sinh nếu cố đi nước pseudo-legal làm bỏ Vua sẽ nhận warning giáo dục.
+- Sau 3 lần bỏ Vua, có penalty event mô phỏng bot bắt Vua.
+
+Bot:
+- bots/turtle2.js.
+- chooseTurtle2BotMove().
+- evaluateTurtle2Move().
+
+Check/checkmate display hiện tại:
+- Checkmate vẫn hiện qua updateStatus() khi game.in_checkmate().
+- Check thường KHÔNG hiện trong Turtle 2 vì updateStatus() có điều kiện game.in_check() && !isTurtle2Mode().
+- Check highlight cũng KHÔNG hiện trong Turtle 2 vì findCheckedKingSquare() return null nếu isTurtle2Mode().
+- Thiết kế này giúp học sinh Turtle 2 tự quan sát chiếu. Turtle 3 mới có thể bật lại nhấn mạnh check.
+
+Undo/Redo:
+- Move thật dùng game.undo() và redoStack giống bot mode.
+- Warning Turtle 2 có turtle2WarningHistory/turtle2WarningRedoStack riêng.
+- Count bỏ Vua turtle2LeftKingCount không reset bằng Undo.
+- Count chỉ reset khi reset game/new game/apply settings thông qua clearLearningState().
+- Warning không xóa move history vì warning là event riêng, không phải chess move.
+
+============================================================
+5. TURTLE 1
+============================================================
+
+Turtle 1 gồm:
+- Turtle 1 - Sơ sinh: học cách đi quân, ăn quân, quan sát giá trị quân.
+- Turtle 1 - Thi lên lớp: kiểm tra học sinh hiểu giá trị quân, quân treo, phòng thủ cơ bản.
+
+Thiết kế:
+- Capture King.
+- Không dùng check/checkmate chuẩn.
+- Cho phép ăn Vua.
+- Ai ăn Vua là thắng.
+- Legal move highlight tắt trong Turtle 1.
+- Premove tắt trong Turtle 1.
+
+File bot:
+- bots/turtle1.js
+
+Context từ script.js:
+- window.Turtle1BotContext
+- Chứa game, pieceValues, oppositeColor, getKingSquare, getTurtlePseudoMovesFrom,
+  getAllTurtlePseudoMoves, getLastBotMove.
+
+Hàm/helper quan trọng trong bots/turtle1.js:
+- chooseTurtle1NewbornBotMove()
+- chooseTurtle1PromotionTestBotMove()
+- chooseTurtle1StandardBotMove()
+- chooseTurtle1BotMove(kind)
+- scoreTurtle1PromotionTestMove(move)
+- isSquareAttackedBasic(square, byColor)
+- isKingUnderBasicThreat(color)
+- getKingSafetyScore(color)
+- doesMoveExposeKingToCapture(move, color)
+- findKingDefenseMoves(color)
+
+Scoring chính:
+- An Vua là ưu tiên rất cao.
+- Tránh tự làm lộ Vua.
+- Ưu tiên ăn quân miễn phí/giao dịch có lời.
+- Tránh bỏ Hậu/Xe quá lộ.
+- Khuyến khích phát triển Mã/Tượng.
+- Có random có kiểm soát để bot không quá máy móc.
+
+Undo sau capture king:
+- makeTurtleMove() lưu fenBefore/fenAfter vào turtleMoveHistory.
+- Nếu Vua bị ăn, endByKingCapture() set turtleGameOver.
+- undoMove() trong Turtle 1 load fenBefore, clear turtleGameOver/turtleWinner, cho chơi tiếp.
+
+Không được phá:
+- Capture King chỉ tồn tại trong isTurtle1Mode().
+- isKingCaptureMove(), makeTurtleMove(), endByKingCapture() phải guard isTurtle1Mode().
+
+============================================================
+6. TURTLE 2
+============================================================
+
+Turtle 2 - Thi lên lớp là level sau Turtle 1.
+
+Mục tiêu dạy:
+- Vua không được đi vào ô nguy hiểm.
+- Vua không được ăn quân được bảo vệ.
+- Hai Vua không được đứng cạnh nhau.
+- Nhận biết chiếu qua quan sát thay vì status "Chiếu!".
+- Thoát chiếu bằng ăn quân chiếu, che đường chiếu, chạy Vua.
+- Chiếu bí.
+- Nhập thành.
+- En passant.
+- Bảo vệ Vua theo luật thật.
+
+Thiết kế luật:
+- Dùng chess.js legal moves chuẩn.
+- Không Capture King bình thường.
+- Nếu học sinh cố đi nước làm bỏ Vua, chess.js từ chối move.
+- script.js phát hiện pseudo-legal attempt đó và trigger Turtle 2 warning.
+
+Check/checkmate hiện tại:
+- Checkmate có hiện status "Chiếu bí"/"Checkmate".
+- Check thường không hiện status trong Turtle 2.
+- Check highlight đỏ lên Vua cũng tắt trong Turtle 2.
+- Từ Turtle 3 có thể bật lại check notice/highlight để gọi tên khái niệm "Chiếu".
+
+Left-king warning:
+- State chính:
+  - turtle2LeftKingCount
+  - turtle2WarningHistory
+  - turtle2WarningRedoStack
+  - turtle2PenaltyGameOver
+  - turtle2ActiveWarningKey
+  - turtle2WarningKingSquare
+  - turtle2PenaltyKingSquare
+- Lần 1: warning nhẹ.
+- Lần 2: warning mạnh hơn.
+- Lần 3: penalty event, mô phỏng bot bắt Vua.
+- Count không reset bằng Undo.
+- Count reset trong clearLearningState().
+- Warning không xóa move history.
+
+File bot:
+- bots/turtle2.js
+
+Bot Turtle 2:
+- Khoảng beginner educational, thực tế có thể khoảng 600-1000 Elo tuỳ vị trí.
+- Không phải engine mạnh.
+- Dùng game.moves({ verbose: true }).
+- Không search sâu.
+- Có controlled randomness trong khai cuộc khi không có danger.
+
+Bot biết:
+- Thoát check.
+- Checkmate-in-1.
+- Check hợp lý.
+- Ăn quân treo.
+- Trade có lời đơn giản.
+- Nhập thành nếu hợp lý.
+- En passant nếu hợp lệ/có lợi.
+- Bảo vệ Hậu/Xe/Tượng/Mã.
+- Không bảo vệ chốt quá kỹ.
+- Opening randomness có kiểm soát.
+
+Priority quân sau fix Turtle 2:
+- Vua > Hậu > Xe > Tượng/Mã > Chốt.
+- Hậu bị treo phạt rất nặng.
+- Xe bị treo phạt nặng.
+- Tượng/Mã bị treo phạt vừa.
+- Chốt gần như bỏ qua.
+- Bot không random top pool khi Hậu/Xe đang bị danger rõ.
+
+Constants quan trọng trong bots/turtle2.js hiện tại:
+- TURTLE2_QUEEN_BLUNDER_PENALTY = 1100
+- TURTLE2_ROOK_BLUNDER_PENALTY = 620
+- TURTLE2_BISHOP_BLUNDER_PENALTY = 240
+- TURTLE2_KNIGHT_BLUNDER_PENALTY = 240
+- TURTLE2_MINOR_PIECE_UNDER_ATTACK_PENALTY = 95
+- TURTLE2_MINOR_PIECE_SAVE_BONUS = 125
+- TURTLE2_QUEEN_SAVE_BONUS = 760
+- TURTLE2_ROOK_SAVE_BONUS = 430
+- TURTLE2_CASTLING_BONUS = 150
+- TURTLE2_EN_PASSANT_BONUS = 55
+- TURTLE2_OPENING_RANDOMNESS = 34
+
+Không được phá:
+- Turtle 2 phải tiếp tục dùng chess.js legal moves chuẩn.
+- Không đưa Capture King bình thường vào Turtle 2.
+- Không hiện "Chiếu!" trong Turtle 2 trừ khi curriculum Turtle 3 hoặc yêu cầu mới thay đổi.
+- Warning visual phải clear sau khi học sinh đi nước hợp lệ.
+- Warning không được xóa move history.
+
+============================================================
+7. ANNOTATION
+============================================================
+
+Annotation hiện nằm trong script.js và style.css:
+- Right-click một ô để toggle circle.
+- Right-drag từ ô này sang ô khác để toggle arrow.
+- SVG layer class: annotation-layer.
+- circles và arrows là Set trong script.js.
+- drawAnnotations() vẽ lại SVG.
+- clearAnnotations() xóa annotations khi left click/drag hoặc một số state transition.
+
+Visual đã được polish nhỏ/mảnh hơn:
+- Stroke khoảng 3-5 px theo square size.
+- Arrow marker size khoảng 16-22 px.
+- Màu cam rgba(249, 115, 22, 0.68).
+
+Annotation không liên quan trực tiếp Turtle 2 warning:
+- Turtle 2 warning dùng class riêng turtle2-king-warning-square, turtle2-king-captured-square,
+  turtle2-king-warning-flash.
+- Annotation vẫn là công cụ người chơi/học sinh đánh dấu board.
+
+============================================================
+8. UI/UX
+============================================================
+
+Move history:
+- renderMoveHistory().
+- Standard, bot, Turtle 2 dùng game.history({ verbose: true }).
+- Turtle 1 dùng turtleMoveHistory riêng.
+- formatMoveSAN(san, locale) đổi notation EN/VI.
+
+Language EN/VI:
+- translations object trong script.js.
+- language lưu localStorage key chessLanguage.
+- updateLanguageUI() cập nhật text UI.
+- Notation EN/VI độc lập với language UI.
+
+Dark/light:
+- theme lưu localStorage key chessTheme.
+- applyTheme() toggle body.dark-theme.
+- CSS variables trong style.css.
+
+Flip board:
+- boardFlipped.
+- displaySquare(), squareToDisplay(), renderCoordinates().
+- applyGameSettings() tự flip khi người chơi cầm Đen trong bot/Turtle modes.
+
+Coordinates:
+- rankCoordinates và fileCoordinates nằm ngoài board.
+- renderCoordinates() update theo boardFlipped.
+
+Drag/drop:
+- pointerdown/pointermove/pointerup.
+- dragGhostElement hiển thị quân ghost.
+- hideOriginPiece() tạm ẩn quân gốc.
+- handleDragAndDrop() gọi makeMove() hoặc setPremove().
+
+Ghost piece:
+- class drag-ghost trong CSS.
+- pointer-events none.
+- position fixed, đi theo pointer.
+
+Premove:
+- Chỉ bật khi getCurrentMode() === "local".
+- Bot mode và Turtle modes tắt premove.
+- setPremove(), clearPremove(), tryExecutePremove().
+
+Undo/Redo:
+- undoMove(), redoMove().
+- Mỗi mode có branch riêng.
+- Cực kỳ nhạy cảm, không refactor lớn nếu không có test.
+
+Status message:
+- updateStatus().
+- temporaryStatusMessage cho thông báo ngắn.
+- Turtle 1 end status riêng.
+- Turtle 2 warning/penalty status riêng.
+- Standard check/checkmate/draw status dùng chess.js.
+
+Check/checkmate display:
+- Local/Bot chuẩn: check hiện "Chiếu"/"Check", checkmate hiện "Chiếu bí"/"Checkmate".
+- Turtle 1: không dùng check/checkmate chuẩn.
+- Turtle 2: checkmate hiện, check thường không hiện, check highlight tắt.
+
+============================================================
+9. CÁC HÀM QUAN TRỌNG
+============================================================
+
+script.js
+
+getCurrentMode()
+- Vai trò: trả về currentMode.
+- Mode dùng: tất cả.
+- Không đổi value mode tùy tiện.
+
+isTurtle1Mode()
+- Vai trò: true với turtle-newborn và turtle-standard.
+- Mode dùng: Turtle 1 và các guard không cho Capture King rò ra ngoài.
+- Không được mở rộng sang Turtle 2/Turtle 3.
+
+isTurtle1NewbornMode()
+- Vai trò: nhận Turtle 1 - Sơ sinh.
+- Dùng trong bot selection và settings.
+
+isTurtle1StandardMode()
+- Vai trò: nhận Turtle 1 - Thi lên lớp.
+- Dùng trong bot selection và settings.
+
+isTurtle2Mode()
+- Vai trò: true với turtle-2.
+- Dùng để guard Turtle 2 warning, bot, status, highlight.
+- Nếu thêm Turtle 3, tạo isTurtle3Mode() riêng, không sửa isTurtle2Mode() để gom chung.
+
+getLearningSettings()
+- Vai trò: trả settings học tập như allowKingCapture, showLegalMoves, useCheckRules, premoveEnabled.
+- Turtle 1 tắt legal highlight và premove.
+- Local bật premove.
+- Cẩn thận nếu Turtle 3 cần khác Turtle 2.
+
+updateModeControls()
+- Vai trò: disable/chọn bot difficulty theo mode.
+- Turtle 1/Turtle 2 đang lock difficulty.
+- Nếu thêm Turtle 3 cần thêm option riêng.
+
+applyGameSettings()
+- Vai trò: đọc mode/player/bot settings, reset game/state, flip board nếu cần, schedule bot.
+- Mode dùng: tất cả.
+- Phải gọi clearLearningState() để reset Turtle state.
+
+clearLearningState()
+- Vai trò: reset Turtle 1 và Turtle 2 learning state.
+- Reset turtle2LeftKingCount, warning history, penalty state.
+- Count bỏ Vua Turtle 2 reset ở đây, không reset bằng Undo.
+- Nếu thêm Turtle 3, thêm state reset tại đây một cách guard rõ.
+
+isBotTurn()
+- Vai trò: xác định khi nào bot được đi.
+- Mode dùng: bot, Turtle 1, Turtle 2.
+- Chặn khi game over, pending promotion, turtleGameOver, turtle2PenaltyGameOver.
+
+shouldScheduleBotMove()
+- Vai trò: quyết định schedule bot 300ms.
+- Mode dùng: bot, Turtle 1, Turtle 2.
+- Nếu Turtle 3 có bot, thêm isTurtle3Mode() ở đây.
+
+scheduleBotMove()
+- Vai trò: setTimeout 300ms gọi makeBotMove().
+- Không để bot chạy khi không đúng lượt.
+
+makeBotMove()
+- Vai trò: route bot theo mode.
+- bot chuẩn: Random/Greedy/Minimax.
+- Turtle 1: chooseTurtle1NewbornBotMove()/chooseTurtle1StandardBotMove(), rồi makeTurtleMove().
+- Turtle 2: chooseTurtle2BotMove(), rồi makeMove().
+- Nếu Turtle 3, thêm branch riêng trước bot chuẩn.
+
+makeMove(moveData, options)
+- Vai trò: entry chính cho move chuẩn.
+- Nếu isTurtle1Mode(), route sang makeTurtleMove().
+- Turtle 2 penalty thì return false.
+- Promotion picker nếu cần.
+- Dùng game.move() cho standard/Turtle 2.
+- Nếu game.move() fail trong Turtle 2, có thể triggerTurtle2LeftKingWarning().
+- Clear redoStack khi move mới.
+- Schedule bot nếu cần.
+
+makeTurtleMove(moveData, options)
+- Vai trò: move riêng Turtle 1 Capture King.
+- Chỉ chạy khi isTurtle1Mode().
+- Dùng getTurtlePseudoMovesFrom().
+- Tự update FEN side-to-move.
+- Lưu turtleMoveHistory.
+- Nếu captured king, gọi endByKingCapture().
+
+getTurtlePseudoMovesFrom(from)
+- Vai trò: pseudo move generator Turtle 1, cho phép ăn Vua.
+- Mode dùng: Turtle 1.
+- Không dùng cho Local/Bot/Turtle 2.
+
+getAllTurtlePseudoMoves(color)
+- Vai trò: thu thập pseudo moves Turtle 1 từ board.
+- Lưu ý chess.js board pieces không có piece.square nên phải dùng boardArraySquare(row, col).
+
+isKingCaptureMove(from, to)
+- Vai trò: kiểm tra move ăn Vua Turtle 1.
+- Guard isTurtle1Mode().
+- Không để true trong standard/Turtle 2/Turtle 3.
+
+endByKingCapture(winnerColor)
+- Vai trò: kết thúc Turtle 1 khi Vua bị ăn.
+- Guard isTurtle1Mode().
+
+updateStatus()
+- Vai trò: cập nhật status text/class.
+- Turtle 1: status end hoặc lượt đi.
+- Turtle 2: penalty/warning status ưu tiên.
+- Standard: checkmate/draw/check/lượt đi.
+- Hiện tại check thường không hiện trong Turtle 2.
+- Nếu Turtle 3 muốn hiện check, thêm guard riêng.
+
+findCheckedKingSquare()
+- Vai trò: tìm Vua đang bị chiếu để highlight.
+- Return null trong Turtle 1 và Turtle 2.
+- Local/Bot chuẩn vẫn highlight checked king.
+- Turtle 3 có thể cần thay đổi bằng guard isTurtle3Mode().
+
+renderBoard()
+- Vai trò: render board, pieces, highlights, Turtle 2 warning squares, checked king, annotations.
+- Mode dùng: tất cả.
+- Không để visual Turtle 2 rò sang mode khác.
+
+renderMoveHistory()
+- Vai trò: render lịch sử nước đi.
+- Turtle 1 dùng turtleMoveHistory.
+- Các mode khác dùng game.history({ verbose: true }).
+- Warning Turtle 2 không phải move nên không vào history.
+
+undoMove()
+- Vai trò: undo theo từng mode.
+- Turtle 1: turtleMoveHistory/turtleRedoStack.
+- Turtle 2: warning event riêng trước, rồi game.undo() theo nhóm bot.
+- Bot chuẩn: undo theo nhóm.
+- Local: undo 1 half-move.
+- Không reset turtle2LeftKingCount bằng undo.
+
+redoMove()
+- Vai trò: redo theo từng mode.
+- Turtle 1: replay fenAfter.
+- Turtle 2: warning redo nếu phù hợp, rồi redoStack move thật.
+- Standard/bot: makeMove(... keepRedo).
+
+triggerTurtle2LeftKingWarning(attempt)
+- Vai trò: tăng turtle2LeftKingCount, tạo event warning, push turtle2WarningHistory.
+- Lần 3 set penaltyAfter true.
+- Clear redo stacks liên quan.
+- Gọi applyTurtle2WarningEvent().
+
+applyTurtle2WarningEvent(event, options)
+- Vai trò: apply visual/status warning hoặc penalty.
+- Nếu penalty, gọi captureTurtle2PlayerKing().
+- Không tạo chess history move.
+
+undoTurtle2WarningEvent(event)
+- Vai trò: undo visual/penalty warning event.
+- Nếu penalty, restoreTurtle2PlayerKing().
+- Không giảm turtle2LeftKingCount.
+
+clearTurtle2WarningFlash()
+- Vai trò: gỡ class turtle2-king-warning-flash và timer.
+
+clearTurtle2WarningVisual()
+- Vai trò: clear turtle2ActiveWarningKey, warning square, penalty square, warning flash.
+- Được gọi khi học sinh đi nước Turtle 2 hợp lệ.
+
+isTurtle2LeftKingAttempt(from, to, promotion)
+- Vai trò: xác định nước pseudo-legal Turtle 2 làm Vua nguy hiểm.
+- Guard isTurtle2Mode().
+
+window.Turtle1BotContext
+- File: script.js.
+- Vai trò: context cho bots/turtle1.js.
+- Không import/export module.
+
+window.Turtle2BotContext
+- File: script.js.
+- Vai trò: context cho bots/turtle2.js.
+- Chứa game, pieceValues, oppositeColor, getKingSquare, getLastBotMove.
+
+bots/turtle1.js
+
+chooseTurtle1NewbornBotMove()
+- Bot Turtle 1 Sơ sinh.
+- Dễ, nhưng biết ăn Vua/cứu Vua cơ bản/an quân miễn phí.
+
+chooseTurtle1PromotionTestBotMove()
+- Bot Turtle 1 Thi lên lớp.
+- Scoring mạnh hơn, ưu tiên ăn Vua, cứu Vua, ăn quân tốt, tránh blunder lớn.
+
+chooseTurtle1StandardBotMove()
+- Wrapper compatibility cho Turtle 1 standard.
+
+scoreTurtle1PromotionTestMove(move)
+- Scoring chính Turtle 1.
+- Dựa trên Capture King/pseudo moves.
+
+bots/turtle2.js
+
+chooseTurtle2BotMove()
+- Chọn move Turtle 2 từ game.moves({ verbose: true }).
+- Checkmate-in-1 ưu tiên tuyệt đối.
+- Nếu đang in check, chọn best scored move.
+- Nếu Hậu/Xe đang danger hoặc có ăn Hậu/Xe miễn phí, không random.
+- Nếu minor danger, chọn best move.
+- Nếu không danger, dùng controlled randomness trong top candidates.
+
+evaluateTurtle2Move(move)
+- Scoring chính Turtle 2.
+- Dùng chess.js legal move simulation.
+- Biết capture, hanging pieces, profitable trades, castling, en passant, check, checkmate.
+- Sau fix priority, Hậu/Xe được phạt/cứu mạnh hơn Tượng/Mã.
+
+isSquareAttacked(chessGame, square, byColor)
+- Helper attack map cho Turtle 2 bot.
+- Không phụ thuộc trực tiếp chess.js in_check.
+
+isPieceHanging(chessGame, square, color)
+- True nếu quân không được bảo vệ và bị đối phương tấn công.
+
+findHangingPieces(chessGame, color, types)
+- Tìm quân treo theo type list.
+
+findThreatenedPieces(chessGame, color, types)
+- Tìm quân bị tấn công theo type list.
+
+isSeriousThreat(chessGame, threat)
+- Threat nghiêm trọng nếu attacker là chốt/quân rẻ hơn-bằng hoặc quân đang hanging.
+
+saveBonusForPiece(pieceType)
+- Bonus cứu quân theo giá trị: Hậu cao, Xe cao, minor vừa, chốt 0.
+
+============================================================
+10. CÁCH BUILD LẠI PROJECT TỪ ĐẦU
+============================================================
+
+File cần có:
+- index.html
+- style.css
+- script.js
+- chess.js
+- bots/turtle1.js
+- bots/turtle2.js
+
+Thứ tự script trong index.html:
+1. chess.js
+2. bots/turtle1.js
+3. bots/turtle2.js
+4. script.js
+
+Cách mở:
+- Dùng Live Server hoặc static server bất kỳ trong root project.
+- Mở index.html.
+- Console nên có:
+  - script.js loaded
+  - chess.js loaded
+  - board rendered
+
+Kiểm tra cú pháp:
+node --check script.js
+node --check bots/turtle1.js
+node --check bots/turtle2.js
+
+Manual smoke tests nên chạy:
+- Local: e2-e4, e7-e5, check/checkmate chuẩn.
+- Bot random/greedy/minimax: bot đi sau 300ms.
+- Bot với playerColor black: bot đi mở đầu.
+- Turtle 1 newborn: Capture King hoạt động, legal highlight tắt.
+- Turtle 1 standard: bot biết ăn Vua/cứu Vua/an quân treo.
+- Turtle 2: legal moves chuẩn, không Capture King bình thường.
+- Turtle 2: thử nước bỏ Vua để hiện warning.
+- Turtle 2: warning lần 3 tạo penalty.
+- Turtle 2: undo warning không reset count.
+- Turtle 2: move hợp lệ sau warning clear visual.
+- Undo/Redo từng mode.
+- Promotion.
+- EN/VI language.
+- Notation EN/VI.
+- Dark/light.
+- Flip board + coordinates.
+- Right-click annotation.
+- Drag/drop + ghost piece.
+
+============================================================
+11. RỦI RO CẦN NHỚ TRƯỚC TURTLE 3
+============================================================
+
+Không phá Turtle 1:
+- Capture King phải chỉ nằm trong isTurtle1Mode().
+- Không đổi getTurtlePseudoMovesFrom nếu không cần.
+- Không để chess.js legal move ép Turtle 1.
+
+Không phá Turtle 2:
+- Turtle 2 dùng chess.js legal moves chuẩn.
+- Không thêm Capture King bình thường.
+- Không hiện check thường/highlight nếu chưa chốt curriculum Turtle 3.
+- Warning count không reset bằng Undo.
+- Warning không xóa move history.
+- Penalty sau 3 lần bỏ Vua phải còn hoạt động.
+
+Không phá standard modes:
+- Local 2 Players phải giữ luật chess.js chuẩn.
+- Player vs Bot chuẩn Random/Greedy/Minimax phải giữ.
+- Premove chỉ local.
+- Promotion phải giữ.
+- Undo/Redo phải giữ.
+
+Không sửa chess.js:
+- chess.js là thư viện local.
+- Chỉ thay nếu có quyết định nâng cấp thư viện rõ ràng và test đầy đủ.
+
+Không refactor lớn:
+- script.js lớn nhưng đang ổn định.
+- Khi thêm Turtle 3, ưu tiên patch nhỏ có guard rõ.
+
+Không làm bot thành engine quá mạnh:
+- Turtle bots là giáo dục.
+- Turtle 2 cần hiểu Hậu/Xe quan trọng, nhưng vẫn có thể yếu ở tactic 2 nước.
+- Turtle 3 có thể thêm tactic nhẹ, không biến thành engine sâu.
+
+Mỗi level mới nên có guard riêng:
+- Tạo isTurtle3Mode().
+- Không nhét Turtle 3 vào isTurtle2Mode().
+- Nếu cần shared helper thì đặt tên rõ, tránh đổi behavior Turtle 2.
+
+Nếu thêm Turtle 3:
+- Tạo bots/turtle3.js.
+- Expose window.chooseTurtle3BotMove.
+- Tạo window.Turtle3BotContext nếu cần.
+- Thêm option mode trong index.html.
+- Thêm translations EN/VI.
+- Update updateModeControls(), isBotTurn(), isBotGameMode(), shouldScheduleBotMove(), makeBotMove().
+- Cân nhắc update updateStatus() và findCheckedKingSquare() để Turtle 3 bắt đầu hiện/nhấn mạnh check.
+
+END OF BACKUP
