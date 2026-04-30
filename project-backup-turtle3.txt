@@ -1,0 +1,494 @@
+PROJECT BACKUP - TURTLE 3
+Updated after Turtle 3 completion
+
+==================================================
+1. TONG QUAN PROJECT
+==================================================
+
+Ten project:
+Ichess - game co vua giao duc tren web.
+
+Muc tieu:
+- Day co vua theo level.
+- Khong huong toi engine co vua manh.
+- Muc tieu la day luat, quan sat, an toan Vua, khai cuoc co ky luat, va nhan biet y do 1 nuoc.
+
+Tech stack:
+- HTML
+- CSS
+- JavaScript
+- chess.js
+
+Triet ly:
+- Script UI/gameplay chay bang JS thuan.
+- Turtle 1, Turtle 2, Turtle 3 la cac level hoc tap rieng.
+- Moi level moi phai duoc guard rieng, khong lam ro logic cua mode cu.
+
+==================================================
+2. CAU TRUC FILE
+==================================================
+
+Files quan trong hien tai:
+- index.html
+- style.css
+- script.js
+- chess.js
+- bots/turtle1.js
+- bots/turtle2.js
+- bots/turtle3.js
+
+Backup/handoff lien quan:
+- project-backup-turtle1.txt
+- project-backup-turtle2.txt
+- project-backup-turtle3.txt
+- handoff.txt neu co
+
+==================================================
+3. LOAD ORDER
+==================================================
+
+Load order trong index.html:
+1. chess.js
+2. bots/turtle1.js
+3. bots/turtle2.js
+4. bots/turtle3.js
+5. script.js
+
+Ghi chu:
+- chess.js phai load truoc tat ca.
+- cac bot expose qua window.* va script.js goi sau.
+
+==================================================
+4. CAC MODE HIEN CO
+==================================================
+
+1. local
+- Local 2 Players.
+- Dung chess.js legal moves chuan.
+- Undo/Redo theo half-move.
+- Co drag/drop, click-to-move, promotion, move history.
+
+2. bot
+- Player vs Bot chuan.
+- Dung chess.js legal moves chuan.
+- Difficulty:
+  - random
+  - greedy
+  - minimax
+- Undo/Redo theo cap player + bot.
+
+3. turtle-newborn
+- Turtle 1 - So sinh.
+- Capture King.
+- Khong dung check/checkmate chuan.
+- Cho phep an Vua.
+- Undo/Redo theo logic Turtle 1.
+
+4. turtle-standard
+- Turtle 1 - Thi len lop.
+- Capture King.
+- Bot Turtle 1 manh hon newborn.
+
+5. turtle-2
+- Turtle 2 - Thi len lop.
+- Dung chess.js legal move chuan.
+- Co check/checkmate chuan ve luat.
+- Co warning "left king" va penalty sau 3 lan bo Vua.
+- Undo/Redo theo cap player + bot.
+
+6. turtle-3
+- Turtle 3 - Thi len lop.
+- Dung chess.js legal move chuan.
+- Khai cuoc co ky luat.
+- Trung cuoc trung binh.
+- Tan cuoc yeu co kiem soat, nhung neu hon chat thi biet ep thang co ban.
+- Undo/Redo theo cap player + bot.
+
+==================================================
+5. TOM TAT TURTLE 1
+==================================================
+
+File:
+- bots/turtle1.js
+
+Design:
+- Capture King.
+- 2 mode:
+  - Turtle 1 - So sinh
+  - Turtle 1 - Thi len lop
+- Khong ep hoc sinh theo check/checkmate chuan.
+- Day cach di quan, o an toan, an quan treo, doi quan co loi, va bao ve Vua kieu co ban.
+
+Tich hop:
+- script.js goi qua window.chooseTurtle1BotMove / chooseTurtle1NewbornBotMove / chooseTurtle1PromotionTestBotMove / chooseTurtle1StandardBotMove
+- move player cua Turtle 1 di qua makeTurtleMove() trong script.js
+
+Khong duoc pha:
+- Capture King logic
+- pseudo move Turtle 1
+- undo/redo Turtle 1
+
+==================================================
+6. TOM TAT TURTLE 2
+==================================================
+
+File:
+- bots/turtle2.js
+
+Design:
+- Dung chess.js legal move chuan.
+- Day:
+  - Vua khong duoc vao o nguy hiem
+  - Vua khong duoc an quan duoc bao ve
+  - check/checkmate
+  - nhap thanh
+  - en passant
+  - 3 cach thoat check
+
+Warning system:
+- Neu hoc sinh bo Vua vao nguy hiem thi hien warning giao duc.
+- Sau 3 lan se co penalty event.
+- Count khong reset bang Undo.
+- Chi reset khi reset/new game/apply settings.
+
+Tich hop:
+- script.js goi qua window.chooseTurtle2BotMove
+- move player di qua makeMove() voi chess.js
+- script.js giu turtle2LeftKingCount, turtle2WarningHistory, turtle2PenaltyGameOver, visual warning state
+
+Khong duoc pha:
+- left king warning
+- penalty sau 3 lan
+- khong xoa move history vi warning
+
+==================================================
+7. TOM TAT TURTLE 3
+==================================================
+
+File:
+- bots/turtle3.js
+
+Trang thai:
+- Turtle 3 DONE o muc hien tai.
+- La mode thi len lop duy nhat cho Turtle 3.
+
+Design tong the:
+- Dung chess.js legal moves chuan.
+- Khong Capture King.
+- Khong co Turtle 2 left-king warning.
+- Co check/checkmate chuan.
+- Co click-to-move, drag/drop, legal moves toggle (unlock tu Turtle 3 tro di).
+
+7A. Opening Rule Engine
+- Turtle 3 co Opening Rule Engine rieng.
+- Day theo "6 nguyen tac vang":
+  1. Phat trien Ma/Tuong.
+  2. Khong di 1 quan qua nhieu lan.
+  3. Khong dua Hau ra som neu khong an toan va khong co muc dich ro.
+  4. Huong vao trung tam.
+  5. Khong can tro phat trien.
+  6. Khong spam chot phu.
+
+Helper chinh:
+- evaluateTurtle3OpeningRules(...)
+- getTurtle3OpeningProfile(...)
+- doesMoveDevelopMinor(...)
+- doesMoveDevelopQueenSafely(...)
+- doesMoveCastle(...)
+- doesMoveActivateRook(...)
+- doesMoveControlCenter(...)
+- doesMoveBlockDevelopment(...)
+- isUnnecessaryPawnMove(...)
+- isRepeatedPieceMoveAllowed(...)
+
+Penalties/bonuses opening dang co:
+- phat trien quan nhe
+- control center
+- castling
+- rook activation
+- early queen penalty
+- repeated piece penalty
+- knight rim penalty
+- block development penalty
+- extra pawn move penalty
+- premature pawn break penalty
+- backward retreat / return home / undevelopment / wander penalties
+
+7B. Phase Detection
+- detectTurtle3Phase() chia:
+  - opening
+  - middlegame
+  - endgame
+
+Tieu chi gan dung:
+- fullmove number
+- tong material
+- con Hau hay khong
+- so minor da phat trien
+- da nhap thanh hay chua
+
+Muc tieu:
+- opening manh nhat
+- middlegame trung binh
+- endgame yeu hon, nhung biet giu loi neu hon chat
+
+7C. Intent System
+- Bot co intent 1 nuoc.
+- He thong intent duoc expose qua:
+  - getTurtle3MoveIntent(move)
+  - scoreTurtle3Intent(move)
+
+Intent chinh:
+- mate-threat
+- threat-capture
+- check
+- develop
+- castle
+- improve
+
+7D. Opening Book
+- Opening book thu gon, khong da dang qua.
+- Uu tien Italian / basic e4-e5 structures.
+- Co line Ruy Lopez de tranh ...Nb8 vo ly.
+
+Mau opening:
+- Trang:
+  - e4
+  - Nf3
+  - Bc4
+  - O-O
+  - d3 / c3 / Re1
+- Den:
+  - ...e5
+  - ...Nc6
+  - ...Bc5 hoac ...Nf6
+  - ...a6 / ...Nf6 trong Ruy Lopez
+
+Book phai obey rule engine:
+- neu vi pham opening rules nang thi bi loai
+- neu co danger thi bo qua book
+
+7E. Tactical System
+- Tactical system da duoc tune lai.
+- Trong evaluateTurtle3Move() hien co:
+  - priority material
+  - safe capture bonus
+  - attacker/defender profile
+  - anti panic
+  - anti return-home vo ly
+
+Uu tien material:
+- an Hau/Xe free hoac trade loi phai duoc uu tien hon viec chay minor piece
+- constants moi:
+  - TURTLE3_WIN_QUEEN_BONUS
+  - TURTLE3_WIN_ROOK_BONUS
+  - TURTLE3_WIN_MINOR_BONUS
+  - TURTLE3_SAFE_CAPTURE_BONUS
+
+Attacker/defender:
+- getThreatProfile(...) tra ve:
+  - attackersCount
+  - defendersCount
+  - weakestAttackerValue
+  - weakestDefenderValue
+  - pieceValue
+  - isHanging
+  - isUnderDefended
+  - isBadTrade
+  - isActuallyInDanger
+
+Anti panic:
+- neu bi tan cong nhung defenders du va trade khong lo, bot khong panic
+- neu attackers > defenders hoac treo hoac trade xau, bot phai phan ung
+
+Anti return-home:
+- phat nang ...Nb8 / ...Ng8 / bishop ve nha vo ly
+- chi cho phep lui ve nha khi co emergency ro rang
+
+7F. Endgame Design
+- Endgame ngang quan:
+  - yeu co chu dich
+  - khong biet deep opposition
+  - co the bo lo ke hoach thang
+  - khong random lo lieu
+- Endgame hon chat ro:
+  - biet doi quan co ban
+  - biet day chot an toan hon
+  - biet dua Vua hoat dong hon
+  - khong duoc quang loi the mot cach vo ly
+
+Helper lien quan:
+- getTurtle3MaterialBalance(...)
+- isTurtle3WinningEndgame(...)
+- evaluateTurtle3EndgamePlan(...)
+
+7G. Constants quan trong Turtle 3
+- TURTLE3_CHECKMATE_SCORE
+- TURTLE3_ESCAPE_CHECK_BONUS
+- TURTLE3_CHECK_BONUS
+- TURTLE3_MATE_THREAT_BONUS
+- TURTLE3_CAPTURE_HANGING_BONUS
+- TURTLE3_PROFITABLE_TRADE_BONUS
+- TURTLE3_QUEEN_BLUNDER_PENALTY
+- TURTLE3_ROOK_BLUNDER_PENALTY
+- TURTLE3_MINOR_BLUNDER_PENALTY
+- TURTLE3_SAVE_QUEEN_BONUS
+- TURTLE3_SAVE_ROOK_BONUS
+- TURTLE3_SAVE_MINOR_BONUS
+- TURTLE3_WIN_QUEEN_BONUS
+- TURTLE3_WIN_ROOK_BONUS
+- TURTLE3_WIN_MINOR_BONUS
+- TURTLE3_SAFE_CAPTURE_BONUS
+- TURTLE3_OPENING_RETURN_HOME_PENALTY
+- TURTLE3_OPENING_UNDEVELOPMENT_PENALTY
+- TURTLE3_RETURN_HOME_EMERGENCY_PENALTY
+
+==================================================
+8. CAC HAM QUAN TRONG
+==================================================
+
+Script UI/gameplay:
+- script.js
+  - updateModeControls
+  - applyGameSettings
+  - makeMove
+  - makeTurtleMove
+  - undoMove
+  - redoMove
+  - renderBoard
+  - handleSquareClick
+  - cancelActiveDrag
+  - applyBoardTheme
+
+Bot Turtle 3:
+- bots/turtle3.js
+  - detectTurtle3Phase
+  - getThreatProfile
+  - evaluateTurtle3OpeningRules
+  - getTurtle3MoveIntent
+  - scoreTurtle3Intent
+  - evaluateTurtle3Move
+  - chooseTurtle3BotMove
+
+Expose hien tai:
+- window.chooseTurtle1BotMove
+- window.chooseTurtle1NewbornBotMove
+- window.chooseTurtle1PromotionTestBotMove
+- window.chooseTurtle1StandardBotMove
+- window.chooseTurtle2BotMove
+- window.chooseTurtle3BotMove
+- window.evaluateTurtle3Move
+- window.detectTurtle3Phase
+- window.getTurtle3MoveIntent
+- window.scoreTurtle3Intent
+
+==================================================
+9. UI / UX HIEN TAI
+==================================================
+
+Co san:
+- move history
+- EN / VI
+- dark / light app theme
+- flip board
+- coordinates
+- promotion modal
+- click-to-move
+- drag/drop
+- right-click annotation
+- right-click cancel drag
+- legal moves toggle
+- board theme preset system
+
+Legal moves:
+- Turtle 1: locked OFF
+- Turtle 2: locked OFF
+- Turtle 3: unlock, default OFF
+- standard modes: theo setting chung
+
+Board theme system:
+- tao bang JS trong script.js
+- luu localStorage key: ichessBoardTheme
+- presets:
+  - classic
+  - ocean
+  - forest
+  - rose
+  - darkWood
+
+Ghi chu:
+- app theme va board theme la 2 he rieng
+- dark/light app theme khong duoc reset board theme
+
+Known UI issue canh bao:
+- nguoi dung yeu cau next task cho CodeX moi la audit/fix piece color vi "board theme OK nhung mau quan chua apply dung"
+- can audit DOM + CSS selector/class, khong duoc dung vao bot
+
+==================================================
+10. NHUNG THU KHONG DUOC PHA
+==================================================
+
+Tuyet doi khong duoc pha:
+- Local 2 Players
+- Player vs Bot Random/Greedy/Minimax
+- Turtle 1 behavior
+- Turtle 2 behavior
+- Turtle 3 behavior hien tai
+- Capture King Turtle 1
+- Left King Warning Turtle 2
+- chess.js
+- undo/redo
+- move history
+- promotion
+- annotation
+- drag/drop
+- click-to-move
+- right-click cancel drag
+- legal moves setting
+- dark/light app theme
+- board theme persistence
+
+==================================================
+11. KNOWN LIMITATIONS
+==================================================
+
+- Turtle 3 khong phai engine manh.
+- Khong deep tactic 2-3 nuoc theo kieu Bee level.
+- Khong co Bee system.
+- Endgame chu yeu la "yeu co kiem soat", khong phai endgame trainer.
+- Opening book co chu dich giao duc, khong da dang opening.
+- Tactical awareness chi muc 1 nuoc / material / anti blunder / anti panic.
+
+==================================================
+12. CHECKLIST TEST
+==================================================
+
+Checklist cho Turtle 3:
+- Italian opening di sach
+- Ruy Lopez khong ...Nb8 vo ly
+- uu tien an quan lon / free material
+- attackers > defenders xu ly dung
+- minor piece duoc defenders du thi khong panic
+- legal moves Turtle 3 ON/OFF dung
+- click-to-move va drag/drop deu chay
+- right-click cancel drag chay
+
+Checklist regression:
+- Turtle 1 van Capture King dung
+- Turtle 2 van warning dung
+- standard bot van Random/Greedy/Minimax dung
+
+==================================================
+13. BUILD / SYNTAX CHECK
+==================================================
+
+Lenh nen chay:
+- node --check script.js
+- node --check bots/turtle1.js
+- node --check bots/turtle2.js
+- node --check bots/turtle3.js
+
+Neu nghi browser dang load file cu:
+- kiem tra Live Server dung folder
+- kiem tra cache browser
+

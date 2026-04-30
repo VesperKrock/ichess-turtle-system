@@ -25,16 +25,28 @@ document.addEventListener("DOMContentLoaded", function () {
   const modeSelect = document.getElementById("modeSelect");
   const playerColorSelect = document.getElementById("playerColorSelect");
   const botDifficultySelect = document.getElementById("botDifficultySelect");
+  const controlsPanel = document.querySelector(".controls");
   const applySettingsButton = document.getElementById("applySettingsButton");
   const modeLabel = document.getElementById("modeLabel");
   const playerLabel = document.getElementById("playerLabel");
   const botLabel = document.getElementById("botLabel");
+  const botDifficultyGroup = botLabel ? botLabel.closest("label") : null;
   const movesTitle = document.getElementById("movesTitle");
   const moveHistory = document.getElementById("moveHistory");
+  const moveHistoryScroll = document.getElementById("moveHistoryScroll");
+  const materialAdvantageLabel = document.getElementById("materialAdvantageLabel");
+  const materialAdvantageValue = document.getElementById("materialAdvantageValue");
   const promotionModal = document.getElementById("promotionModal");
   const promotionPicker = document.getElementById("promotionPicker");
   const rankCoordinates = document.getElementById("rankCoordinates");
   const fileCoordinates = document.getElementById("fileCoordinates");
+  const DEBUG_CLICK_TO_MOVE = false;
+  let boardThemeButton = null;
+  let boardThemePanel = null;
+  let boardThemeTitle = null;
+  let boardThemeLabel = null;
+  let boardThemeSelect = null;
+  let boardThemeAnchor = null;
 
   let selectedSquare = null;
   let legalMoves = [];
@@ -47,6 +59,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let dragGhostElement = null;
   let isDragging = false;
   let rightClickStart = null;
+  let rightClickCanceledDrag = false;
   let suppressNextClick = false;
   let temporaryStatusMessage = null;
   let temporaryStatusTimer = null;
@@ -64,6 +77,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let botTimer = null;
   let language = loadLanguage();
   let theme = loadTheme();
+  let boardTheme = "classic";
   let turtleGameOver = false;
   let turtleWinner = null;
   let turtleMoveHistory = [];
@@ -115,6 +129,107 @@ document.addEventListener("DOMContentLoaded", function () {
     k: 0
   };
 
+  const initialMaterialCounts = {
+    p: 8,
+    n: 2,
+    b: 2,
+    r: 2,
+    q: 1
+  };
+
+  const materialPieceOrder = ["q", "r", "b", "n", "p"];
+  const materialSymbols = {
+    w: {
+      p: "♙",
+      n: "♘",
+      b: "♗",
+      r: "♖",
+      q: "♕"
+    },
+    b: {
+      p: "♟",
+      n: "♞",
+      b: "♝",
+      r: "♜",
+      q: "♛"
+    }
+  };
+
+  const BOARD_THEME_STORAGE_KEY = "ichessBoardTheme";
+  const BOARD_THEMES = {
+    classic: {
+      boardLight: "#f0d9b5",
+      boardDark: "#b58863",
+      pieceWhite: "#fff7df",
+      pieceBlack: "#1f2937",
+      pieceOutline: "rgba(30, 18, 10, 0.58)",
+      whitePieceShadow: "0 1px 1px rgba(30, 18, 10, 0.68), 0 0 2px rgba(30, 18, 10, 0.4)",
+      blackPieceShadow: "0 1px 1px rgba(255, 249, 232, 0.56), 0 0 2px rgba(255, 249, 232, 0.34)",
+      selectedSquare: "#2563eb",
+      legalMove: "rgba(37, 99, 235, 0.42)",
+      legalCapture: "rgba(185, 28, 28, 0.65)",
+      lastMove: "rgba(234, 179, 8, 0.65)",
+      annotationColor: "rgba(249, 115, 22, 0.68)"
+    },
+    ocean: {
+      boardLight: "#dbeafe",
+      boardDark: "#2563eb",
+      pieceWhite: "#e0f7ff",
+      pieceBlack: "#082f49",
+      pieceOutline: "rgba(7, 29, 58, 0.58)",
+      whitePieceShadow: "0 1px 1px rgba(7, 29, 58, 0.7), 0 0 2px rgba(7, 29, 58, 0.42)",
+      blackPieceShadow: "0 1px 1px rgba(224, 242, 254, 0.6), 0 0 2px rgba(224, 242, 254, 0.36)",
+      selectedSquare: "#0f766e",
+      legalMove: "rgba(14, 165, 233, 0.42)",
+      legalCapture: "rgba(190, 24, 93, 0.62)",
+      lastMove: "rgba(14, 165, 233, 0.5)",
+      annotationColor: "rgba(8, 145, 178, 0.72)"
+    },
+    forest: {
+      boardLight: "#d9f99d",
+      boardDark: "#4d7c0f",
+      pieceWhite: "#f7fee7",
+      pieceBlack: "#14532d",
+      pieceOutline: "rgba(20, 83, 45, 0.6)",
+      whitePieceShadow: "0 1px 1px rgba(20, 83, 45, 0.7), 0 0 2px rgba(20, 83, 45, 0.42)",
+      blackPieceShadow: "0 1px 1px rgba(247, 254, 231, 0.6), 0 0 2px rgba(247, 254, 231, 0.36)",
+      selectedSquare: "#15803d",
+      legalMove: "rgba(34, 197, 94, 0.4)",
+      legalCapture: "rgba(185, 28, 28, 0.62)",
+      lastMove: "rgba(132, 204, 22, 0.58)",
+      annotationColor: "rgba(22, 163, 74, 0.72)"
+    },
+    rose: {
+      boardLight: "#fce7f3",
+      boardDark: "#be6b7d",
+      pieceWhite: "#ffe4ef",
+      pieceBlack: "#831843",
+      pieceOutline: "rgba(131, 24, 67, 0.58)",
+      whitePieceShadow: "0 1px 1px rgba(131, 24, 67, 0.68), 0 0 2px rgba(131, 24, 67, 0.38)",
+      blackPieceShadow: "0 1px 1px rgba(255, 228, 239, 0.58), 0 0 2px rgba(255, 228, 239, 0.34)",
+      selectedSquare: "#db2777",
+      legalMove: "rgba(236, 72, 153, 0.38)",
+      legalCapture: "rgba(190, 24, 93, 0.62)",
+      lastMove: "rgba(244, 114, 182, 0.52)",
+      annotationColor: "rgba(225, 29, 72, 0.68)"
+    },
+    darkWood: {
+      boardLight: "#d6b48a",
+      boardDark: "#6f4e37",
+      pieceWhite: "#fef3c7",
+      pieceBlack: "#3f1f0f",
+      pieceOutline: "rgba(63, 31, 15, 0.6)",
+      whitePieceShadow: "0 1px 1px rgba(63, 31, 15, 0.72), 0 0 2px rgba(63, 31, 15, 0.42)",
+      blackPieceShadow: "0 1px 1px rgba(254, 243, 199, 0.6), 0 0 2px rgba(254, 243, 199, 0.34)",
+      selectedSquare: "#a16207",
+      legalMove: "rgba(217, 119, 6, 0.34)",
+      legalCapture: "rgba(153, 27, 27, 0.62)",
+      lastMove: "rgba(202, 138, 4, 0.56)",
+      annotationColor: "rgba(180, 83, 9, 0.72)"
+    }
+  };
+  boardTheme = loadBoardTheme();
+
   const translations = {
     vi: {
       appTitle: "Cờ Vua",
@@ -134,7 +249,13 @@ document.addEventListener("DOMContentLoaded", function () {
       flipBoard: "Lật bàn cờ",
       flipBoardWhite: "Lật bàn cờ: Trắng",
       flipBoardBlack: "Lật bàn cờ: Đen",
-      moves: "Lịch sử nước đi",
+      moves: "Biên bản trận đấu",
+      materialTitle: "Chênh lệch quân",
+      materialEqual: "Cân bằng",
+      materialWhite: "Trắng +{value}",
+      materialBlack: "Đen +{value}",
+      materialWhiteBehind: "Trắng -{value}",
+      materialBlackBehind: "Đen -{value}",
       mode: "Chế độ",
       player: "Người chơi",
       bot: "Máy",
@@ -147,6 +268,7 @@ document.addEventListener("DOMContentLoaded", function () {
       turtle3Mode: "Turtle 3 - Thi lên lớp",
       white: "Trắng",
       black: "Đen",
+      bee1Mode: "Bee 1 - Thi lên lớp",
       random: "Random",
       greedy: "Greedy",
       minimax: "Minimax",
@@ -187,6 +309,12 @@ document.addEventListener("DOMContentLoaded", function () {
       flipBoardWhite: "Flip Board: White",
       flipBoardBlack: "Flip Board: Black",
       moves: "Moves",
+      materialTitle: "Material advantage",
+      materialEqual: "Equal",
+      materialWhite: "White +{value}",
+      materialBlack: "Black +{value}",
+      materialWhiteBehind: "White -{value}",
+      materialBlackBehind: "Black -{value}",
       mode: "Mode",
       player: "Player",
       bot: "Bot",
@@ -199,6 +327,7 @@ document.addEventListener("DOMContentLoaded", function () {
       turtle3Mode: "Turtle 3 - Promotion Test",
       white: "White",
       black: "Black",
+      bee1Mode: "Bee 1 - Test",
       random: "Random",
       greedy: "Greedy",
       minimax: "Minimax",
@@ -244,6 +373,20 @@ document.addEventListener("DOMContentLoaded", function () {
     return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
 
+  function loadBoardTheme() {
+    try {
+      const savedTheme = localStorage.getItem(BOARD_THEME_STORAGE_KEY);
+
+      if (savedTheme && BOARD_THEMES[savedTheme]) {
+        return savedTheme;
+      }
+    } catch (error) {
+      // Ignore storage errors and fall back to classic.
+    }
+
+    return "classic";
+  }
+
   function t(key, params) {
     const dictionary = translations[language] || translations.vi;
     let text = dictionary[key] || translations.en[key] || key;
@@ -268,6 +411,28 @@ document.addEventListener("DOMContentLoaded", function () {
     flipButton.textContent = boardFlipped ? t("flipBoardBlack") : t("flipBoardWhite");
   }
 
+  function updateBoardThemeUI() {
+    if (!boardThemeButton || !boardThemePanel || !boardThemeTitle || !boardThemeLabel || !boardThemeSelect) {
+      return;
+    }
+
+    const vi = language === "vi";
+
+    boardThemeButton.textContent = vi ? "Bàn cờ" : "Board";
+    boardThemeTitle.textContent = vi ? "Giao diện bàn cờ" : "Board Theme";
+    boardThemeLabel.textContent = vi ? "Màu bàn" : "Board colors";
+
+    updateSelectOptionText(boardThemeSelect, {
+      classic: vi ? "Classic / Cổ điển" : "Classic / Cổ điển",
+      ocean: vi ? "Ocean / Đại dương" : "Ocean / Ocean",
+      forest: vi ? "Forest / Rừng" : "Forest / Forest",
+      rose: vi ? "Rose / Hoa hồng" : "Rose / Rose",
+      darkWood: vi ? "Dark Wood / Gỗ tối" : "Dark Wood / Dark Wood"
+    });
+
+    boardThemeSelect.value = boardTheme;
+  }
+
   function isLegalMovesLockedOffMode(mode) {
     return mode === "turtle-newborn" || mode === "turtle-standard" || mode === "turtle-2";
   }
@@ -275,7 +440,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateLegalMovesButtonText(mode) {
     const displayMode = mode || currentMode;
     const lockedOff = isLegalMovesLockedOffMode(displayMode);
-    const enabled = displayMode === "turtle-3" ? turtle3LegalMovesEnabled : legalMovesEnabled;
+    const enabled = displayMode === "turtle-3" || displayMode === "bee-1" ? turtle3LegalMovesEnabled : legalMovesEnabled;
 
     legalMovesButton.disabled = lockedOff;
     legalMovesButton.textContent = t(!lockedOff && enabled ? "legalMovesOn" : "legalMovesOff");
@@ -288,6 +453,9 @@ document.addEventListener("DOMContentLoaded", function () {
     playerLabel.textContent = t("player");
     botLabel.textContent = t("bot");
     movesTitle.textContent = t("moves");
+    if (materialAdvantageLabel) {
+      materialAdvantageLabel.textContent = t("materialTitle");
+    }
     undoButton.textContent = t("undo");
     redoButton.textContent = t("redo");
     resetButton.textContent = t("reset");
@@ -298,6 +466,7 @@ document.addEventListener("DOMContentLoaded", function () {
     updateLegalMovesButtonText();
     languageButton.textContent = t("languageButton");
     updateFlipButtonText();
+    updateBoardThemeUI();
 
     updateSelectOptionText(modeSelect, {
       local: t("localMode"),
@@ -305,7 +474,8 @@ document.addEventListener("DOMContentLoaded", function () {
       "turtle-newborn": t("turtleNewbornMode"),
       "turtle-standard": t("turtleStandardMode"),
       "turtle-2": t("turtle2Mode"),
-      "turtle-3": t("turtle3Mode")
+      "turtle-3": t("turtle3Mode"),
+      "bee-1": t("bee1Mode")
     });
     updateSelectOptionText(playerColorSelect, {
       w: t("white"),
@@ -319,11 +489,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateStatus();
     updateModeControls();
+    updateMaterialAdvantage();
     renderMoveHistory();
   }
 
   function updateModeControls() {
     const mode = modeSelect.value;
+    const showBotDifficulty = mode === "bot";
+
+    if (botDifficultyGroup) {
+      botDifficultyGroup.style.display = showBotDifficulty ? "" : "none";
+    }
 
     if (mode === "turtle-newborn") {
       botDifficultySelect.value = "greedy";
@@ -335,6 +511,9 @@ document.addEventListener("DOMContentLoaded", function () {
       botDifficultySelect.value = "minimax";
       botDifficultySelect.disabled = true;
     } else if (mode === "turtle-3") {
+      botDifficultySelect.value = "minimax";
+      botDifficultySelect.disabled = true;
+    } else if (mode === "bee-1") {
       botDifficultySelect.value = "minimax";
       botDifficultySelect.disabled = true;
     } else {
@@ -374,6 +553,103 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     applyTheme();
+  }
+
+  function applyBoardTheme(themeKey) {
+    const nextTheme = BOARD_THEMES[themeKey] ? themeKey : "classic";
+    const themeConfig = BOARD_THEMES[nextTheme];
+
+    boardTheme = nextTheme;
+    document.body.style.setProperty("--board-light", themeConfig.boardLight);
+    document.body.style.setProperty("--board-dark", themeConfig.boardDark);
+    document.body.style.setProperty("--white-piece", themeConfig.pieceWhite);
+    document.body.style.setProperty("--black-piece", themeConfig.pieceBlack);
+    document.body.style.setProperty("--piece-outline", themeConfig.pieceOutline);
+    document.body.style.setProperty("--white-piece-shadow", themeConfig.whitePieceShadow);
+    document.body.style.setProperty("--black-piece-shadow", themeConfig.blackPieceShadow);
+    document.body.style.setProperty("--selected-square", themeConfig.selectedSquare);
+    document.body.style.setProperty("--legal-move", themeConfig.legalMove);
+    document.body.style.setProperty("--legal-capture", themeConfig.legalCapture);
+    document.body.style.setProperty("--last-move", themeConfig.lastMove);
+    document.body.style.setProperty("--annotation-color", themeConfig.annotationColor);
+
+    try {
+      localStorage.setItem(BOARD_THEME_STORAGE_KEY, boardTheme);
+    } catch (error) {
+      console.warn("Could not save board theme preference:", error);
+    }
+
+    updateBoardThemeUI();
+    renderBoard();
+  }
+
+  function toggleBoardThemePanel() {
+    if (!boardThemePanel) {
+      return;
+    }
+
+    boardThemePanel.classList.toggle("hidden");
+  }
+
+  function createBoardThemeControls() {
+    if (!controlsPanel || !legalMovesButton) {
+      return;
+    }
+
+    boardThemeAnchor = document.createElement("div");
+    boardThemeAnchor.className = "board-theme-anchor";
+
+    boardThemeButton = document.createElement("button");
+    boardThemeButton.id = "boardThemeButton";
+    boardThemeButton.type = "button";
+
+    boardThemePanel = document.createElement("div");
+    boardThemePanel.id = "boardThemePanel";
+    boardThemePanel.className = "board-theme-panel hidden";
+
+    boardThemeTitle = document.createElement("div");
+    boardThemeTitle.id = "boardThemeTitle";
+    boardThemeTitle.className = "board-theme-title";
+
+    const boardThemeField = document.createElement("label");
+    boardThemeField.className = "board-theme-field";
+
+    boardThemeLabel = document.createElement("span");
+    boardThemeLabel.id = "boardThemeLabel";
+
+    boardThemeSelect = document.createElement("select");
+    boardThemeSelect.id = "boardThemeSelect";
+
+    ["classic", "ocean", "forest", "rose", "darkWood"].forEach(function (themeKey) {
+      const option = document.createElement("option");
+      option.value = themeKey;
+      boardThemeSelect.appendChild(option);
+    });
+
+    boardThemeField.appendChild(boardThemeLabel);
+    boardThemeField.appendChild(boardThemeSelect);
+    boardThemePanel.appendChild(boardThemeTitle);
+    boardThemePanel.appendChild(boardThemeField);
+    boardThemeAnchor.appendChild(boardThemeButton);
+    boardThemeAnchor.appendChild(boardThemePanel);
+    controlsPanel.insertBefore(boardThemeAnchor, legalMovesButton);
+
+    boardThemeButton.addEventListener("click", toggleBoardThemePanel);
+    boardThemeSelect.addEventListener("change", function () {
+      applyBoardTheme(boardThemeSelect.value);
+    });
+
+    document.addEventListener("pointerdown", function (event) {
+      if (!boardThemePanel || boardThemePanel.classList.contains("hidden")) {
+        return;
+      }
+
+      if (boardThemeAnchor && !boardThemeAnchor.contains(event.target)) {
+        boardThemePanel.classList.add("hidden");
+      }
+    });
+
+    updateBoardThemeUI();
   }
 
   function displaySquare(row, col) {
@@ -489,6 +765,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     dragGhostElement = document.createElement("div");
     dragGhostElement.className = "drag-ghost";
+    dragGhostElement.classList.add(draggedPiece.color === "w" ? "white-piece" : "black-piece");
     dragGhostElement.textContent = pieces[draggedPiece.color + draggedPiece.type];
 
     const originSquare = getSquareElement(dragFromSquare);
@@ -505,6 +782,24 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     dragGhostElement = null;
+  }
+
+  function hasActiveDrag() {
+    return Boolean(dragFromSquare || draggedPiece || isDragging);
+  }
+
+  function cancelActiveDrag() {
+    if (!hasActiveDrag()) {
+      return false;
+    }
+
+    draggedPiece = null;
+    dragFromSquare = null;
+    pointerStart = null;
+    isDragging = false;
+    removeDragGhost();
+    renderBoard();
+    return true;
   }
 
   function updateStatus() {
@@ -611,9 +906,13 @@ document.addEventListener("DOMContentLoaded", function () {
     return currentMode === "turtle-3";
   }
 
+  function isBee1Mode() {
+    return currentMode === "bee-1";
+  }
+
   function getLearningSettings() {
     const legalMovesLockedOff = isTurtle1Mode() || isTurtle2Mode();
-    const showLegalMoves = isTurtle3Mode() ? turtle3LegalMovesEnabled : legalMovesEnabled;
+    const showLegalMoves = isTurtle3Mode() || isBee1Mode() ? turtle3LegalMovesEnabled : legalMovesEnabled;
 
     return {
       allowKingCapture: isTurtle1Mode(),
@@ -627,19 +926,19 @@ document.addEventListener("DOMContentLoaded", function () {
     const learningOver = isTurtle1Mode() && turtleGameOver;
     const turtle2Over = isTurtle2Mode() && turtle2PenaltyGameOver;
     const standardOver = !isTurtle1Mode() && game.game_over();
-    return (getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode()) && game.turn() !== playerColor && !learningOver && !turtle2Over && !standardOver && !pendingPromotion;
+    return (getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode()) && game.turn() !== playerColor && !learningOver && !turtle2Over && !standardOver && !pendingPromotion;
   }
 
   function isBotGameMode() {
-    return getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode();
+    return getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode();
   }
 
   function shouldScheduleBotMove() {
-    return isBotTurn() && (getCurrentMode() === "bot" || isTurtle1NewbornMode() || isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode());
+    return isBotTurn() && (getCurrentMode() === "bot" || isTurtle1NewbornMode() || isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode());
   }
 
   function usesPairedBotUndoMode() {
-    return getCurrentMode() === "bot" || isTurtle2Mode() || isTurtle3Mode();
+    return getCurrentMode() === "bot" || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode();
   }
 
   function scheduleBotMove() {
@@ -864,6 +1163,16 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   window.Turtle3BotContext = {
+    game: game,
+    pieceValues: pieceValues,
+    oppositeColor: oppositeColor,
+    getKingSquare: getKingSquare,
+    getLastBotMove: function () {
+      return lastBotMove;
+    }
+  };
+
+  window.Bee1BotContext = {
     game: game,
     pieceValues: pieceValues,
     oppositeColor: oppositeColor,
@@ -1103,6 +1412,28 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    if (isBee1Mode()) {
+      const bee1Move = chooseBee1BotMove();
+
+      if (!bee1Move) {
+        renderBoard();
+        return;
+      }
+
+      makeMove({
+        from: bee1Move.from,
+        to: bee1Move.to,
+        promotion: bee1Move.promotion || "q"
+      }, { skipPremove: true });
+      lastBotMove = {
+        piece: bee1Move.piece,
+        from: bee1Move.from,
+        to: bee1Move.to
+      };
+      renderBoard();
+      return;
+    }
+
     let move = chooseRandomMove();
 
     if (botDifficulty === "greedy") {
@@ -1151,8 +1482,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function applyGameSettings() {
     currentMode = modeSelect.value;
     playerColor = playerColorSelect.value;
-    botDifficulty = isTurtle1NewbornMode() ? "greedy" : isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() ? "turtle-standard" : botDifficultySelect.value;
-    if (isTurtle3Mode()) {
+    botDifficulty = isTurtle1NewbornMode() ? "greedy" : isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() ? "turtle-standard" : botDifficultySelect.value;
+    if (isTurtle3Mode() || isBee1Mode()) {
       turtle3LegalMovesEnabled = false;
     }
 
@@ -1160,7 +1491,7 @@ document.addEventListener("DOMContentLoaded", function () {
     resetInteractionState();
     clearLearningState();
 
-    if ((currentMode === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode()) && playerColor === "b") {
+    if ((currentMode === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode()) && playerColor === "b") {
       boardFlipped = true;
       updateFlipButtonText();
     } else {
@@ -1184,6 +1515,9 @@ document.addEventListener("DOMContentLoaded", function () {
     selectedSquare = square;
     premoveSource = null;
     legalMoves = getLegalMoves(square);
+    if (DEBUG_CLICK_TO_MOVE) {
+      console.log("[ClickMove] selectSquare", square, legalMoves);
+    }
   }
 
   function selectPremoveSource(square) {
@@ -1962,6 +2296,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function makeMove(moveData, options) {
+    if (DEBUG_CLICK_TO_MOVE) {
+      console.log("[ClickMove] makeMove attempt", moveData.from, moveData.to, moveData);
+    }
     if (isTurtle1Mode()) {
       return makeTurtleMove(moveData, options);
     }
@@ -2229,6 +2566,125 @@ document.addEventListener("DOMContentLoaded", function () {
     renderBoard();
   }
 
+  function calculateMaterialAdvantage() {
+    const totals = { w: 0, b: 0 };
+    const counts = {
+      w: { p: 0, n: 0, b: 0, r: 0, q: 0 },
+      b: { p: 0, n: 0, b: 0, r: 0, q: 0 }
+    };
+    const boardState = game.board();
+
+    boardState.forEach(function (row) {
+      row.forEach(function (piece) {
+        if (piece) {
+          totals[piece.color] += pieceValues[piece.type] || 0;
+          if (counts[piece.color] && Object.prototype.hasOwnProperty.call(counts[piece.color], piece.type)) {
+            counts[piece.color][piece.type] += 1;
+          }
+        }
+      });
+    });
+
+    const details = buildMaterialDetails(counts);
+
+    return {
+      diff: totals.w - totals.b,
+      whiteDetail: details.whiteDetail,
+      blackDetail: details.blackDetail
+    };
+  }
+
+  function buildMaterialDetails(counts) {
+    const details = {
+      whiteDetail: [],
+      blackDetail: []
+    };
+
+    materialPieceOrder.forEach(function (pieceType) {
+      const capturedByWhite = Math.max(0, initialMaterialCounts[pieceType] - (counts.b[pieceType] || 0));
+      const capturedByBlack = Math.max(0, initialMaterialCounts[pieceType] - (counts.w[pieceType] || 0));
+      const netCount = capturedByWhite - capturedByBlack;
+
+      if (netCount > 0) {
+        for (let count = 0; count < netCount; count += 1) {
+          details.whiteDetail.push(materialSymbols.w[pieceType]);
+        }
+      } else if (netCount < 0) {
+        for (let count = 0; count < Math.abs(netCount); count += 1) {
+          details.blackDetail.push(materialSymbols.b[pieceType]);
+        }
+      }
+    });
+
+    return {
+      whiteDetail: details.whiteDetail.join(""),
+      blackDetail: details.blackDetail.join("")
+    };
+  }
+
+  function appendMaterialLine(text) {
+    const line = document.createElement("div");
+    line.className = "material-advantage__line";
+    line.textContent = text;
+    materialAdvantageValue.appendChild(line);
+  }
+
+  function appendMaterialRow(sideLabel, scoreText, detailText) {
+    const row = document.createElement("div");
+    const side = document.createElement("span");
+    const score = document.createElement("span");
+    const detail = document.createElement("span");
+
+    row.className = "material-detail-row";
+    side.className = "material-detail-row__side";
+    score.className = "material-detail-row__score";
+    detail.className = "material-detail-row__pieces";
+
+    side.textContent = sideLabel;
+    score.textContent = scoreText;
+    detail.textContent = detailText || "";
+
+    row.appendChild(side);
+    row.appendChild(score);
+    row.appendChild(detail);
+    materialAdvantageValue.appendChild(row);
+  }
+
+  function updateMaterialAdvantage() {
+    if (!materialAdvantageValue) {
+      return;
+    }
+
+    const material = calculateMaterialAdvantage();
+    const diff = material.diff;
+    const whiteDetail = material.whiteDetail;
+    const blackDetail = material.blackDetail;
+    materialAdvantageValue.innerHTML = "";
+
+    if (diff > 0) {
+      appendMaterialRow(t("white"), "+" + diff, whiteDetail);
+      if (blackDetail) {
+        appendMaterialRow(t("black"), "-" + diff, blackDetail);
+      }
+    } else if (diff < 0) {
+      appendMaterialRow(t("black"), "+" + Math.abs(diff), blackDetail);
+      if (whiteDetail) {
+        appendMaterialRow(t("white"), String(diff), whiteDetail);
+      }
+    } else {
+      if (whiteDetail || blackDetail) {
+        if (whiteDetail) {
+          appendMaterialRow(t("white"), "0", whiteDetail);
+        }
+        if (blackDetail) {
+          appendMaterialRow(t("black"), "0", blackDetail);
+        }
+      } else {
+        appendMaterialLine(t("materialEqual"));
+      }
+    }
+  }
+
   function renderMoveHistory() {
     const history = isTurtle1Mode() ? turtleMoveHistory : game.history({ verbose: true });
     moveHistory.innerHTML = "";
@@ -2249,6 +2705,10 @@ document.addEventListener("DOMContentLoaded", function () {
       row.appendChild(whiteMove);
       row.appendChild(blackMove);
       moveHistory.appendChild(row);
+    }
+
+    if (moveHistoryScroll) {
+      moveHistoryScroll.scrollTop = moveHistoryScroll.scrollHeight;
     }
   }
 
@@ -2351,10 +2811,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
         square.addEventListener("click", function () {
           if (suppressNextClick) {
+            if (DEBUG_CLICK_TO_MOVE) {
+              console.log("[ClickMove] square click suppressed", name);
+            }
             suppressNextClick = false;
             return;
           }
 
+          if (DEBUG_CLICK_TO_MOVE) {
+            console.log("[ClickMove] square click", name);
+          }
           clearAnnotations();
           handleSquareClick(name);
         });
@@ -2364,12 +2830,20 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     updateStatus();
+    updateMaterialAdvantage();
     renderMoveHistory();
     drawAnnotations();
     console.log("board rendered");
   }
 
   function handleSquareClick(square) {
+    if (DEBUG_CLICK_TO_MOVE) {
+      console.log("[ClickMove] handleSquareClick", square, {
+        selectedSquare: selectedSquare,
+        isBotTurn: isBotTurn(),
+        mode: modeSelect ? modeSelect.value : null
+      });
+    }
     const piece = game.get(square);
 
     if (pendingPromotion || isBotTurn() || turtleGameOver || turtle2PenaltyGameOver) {
@@ -2377,7 +2851,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (premoveSource) {
-if (getCurrentMode() === "bot" || isTurtle3Mode()) {
+if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode()) {
         clearPremove();
         renderBoard();
         return;
@@ -2411,7 +2885,12 @@ if (getCurrentMode() === "bot" || isTurtle3Mode()) {
     }
 
     if (piece && piece.color === game.turn()) {
-      selectSquare(square);
+      if (square === selectedSquare) {
+        clearSelection();
+      } else {
+        selectSquare(square);
+      }
+
       renderBoard();
       return;
     }
@@ -2473,7 +2952,7 @@ if (getCurrentMode() === "bot" || isTurtle3Mode()) {
     const squareSize = board.clientWidth / 8;
     const annotationStroke = Math.max(3, Math.min(5, squareSize * 0.055));
     const markerSize = Math.max(16, Math.min(22, squareSize * 0.28));
-    const annotationColor = "rgba(249, 115, 22, 0.68)";
+    const annotationColor = getComputedStyle(document.body).getPropertyValue("--annotation-color").trim() || "rgba(249, 115, 22, 0.68)";
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
     const markerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -2603,20 +3082,60 @@ if (getCurrentMode() === "bot" || isTurtle3Mode()) {
   }
 
   board.addEventListener("contextmenu", function (event) {
+    if (hasActiveDrag()) {
+      if (DEBUG_CLICK_TO_MOVE) {
+        console.log("[ContextMenu] cancel drag path", {
+          targetClass: event.target && event.target.className ? event.target.className : "",
+          selectedSquare: selectedSquare
+        });
+      }
+      event.preventDefault();
+      rightClickCanceledDrag = cancelActiveDrag();
+      return;
+    }
+
+    if (DEBUG_CLICK_TO_MOVE) {
+      console.log("[ContextMenu] normal path", {
+        targetClass: event.target && event.target.className ? event.target.className : "",
+        selectedSquare: selectedSquare
+      });
+    }
     event.preventDefault();
   });
 
   board.addEventListener("pointerdown", function (event) {
     const square = squareFromEvent(event);
-
-    if (!square || pendingPromotion || isBotTurn() || turtleGameOver) {
-      return;
+    if (DEBUG_CLICK_TO_MOVE) {
+      console.log("[PointerDown]", {
+        button: event.button,
+        targetClass: event.target && event.target.className ? event.target.className : "",
+        square: square,
+        selectedSquare: selectedSquare
+      });
     }
 
     if (event.button === 2) {
+      if (isDragging || dragFromSquare || draggedPiece) {
+        if (DEBUG_CLICK_TO_MOVE) {
+          console.log("[PointerDown] preventDefault right-click cancel", square);
+        }
+        event.preventDefault();
+        rightClickCanceledDrag = cancelActiveDrag();
+        rightClickStart = null;
+        return;
+      }
+
+      if (!square || pendingPromotion || isBotTurn() || turtleGameOver) {
+        return;
+      }
+
       event.preventDefault();
       clearPremove();
       rightClickStart = square;
+      return;
+    }
+
+    if (!square || pendingPromotion || isBotTurn() || turtleGameOver) {
       return;
     }
 
@@ -2630,11 +3149,10 @@ if (getCurrentMode() === "bot" || isTurtle3Mode()) {
 
     if (!piece) {
       clearPremove();
-      renderBoard();
       return;
     }
 
-    if ((getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode()) && piece.color !== playerColor) {
+    if ((getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode()) && piece.color !== playerColor) {
       return;
     }
 
@@ -2646,9 +3164,6 @@ if (getCurrentMode() === "bot" || isTurtle3Mode()) {
     dragFromSquare = square;
     isDragging = false;
 
-    if (board.setPointerCapture) {
-      board.setPointerCapture(event.pointerId);
-    }
   });
 
   board.addEventListener("pointermove", function (event) {
@@ -2661,17 +3176,50 @@ if (getCurrentMode() === "bot" || isTurtle3Mode()) {
 
     if (!isDragging && Math.sqrt(dx * dx + dy * dy) > 6) {
       isDragging = true;
+      if (board.setPointerCapture) {
+        if (DEBUG_CLICK_TO_MOVE) {
+          console.log("[PointerMove] setPointerCapture", {
+            square: dragFromSquare,
+            pointerId: event.pointerId
+          });
+        }
+        board.setPointerCapture(event.pointerId);
+      }
       createDragGhost(event);
     }
 
     if (isDragging) {
+      if (DEBUG_CLICK_TO_MOVE) {
+        console.log("[PointerMove] preventDefault dragging", {
+          from: dragFromSquare
+        });
+      }
       event.preventDefault();
       updateDragGhostPosition(event);
     }
   });
 
   board.addEventListener("pointerup", function (event) {
+    if (DEBUG_CLICK_TO_MOVE) {
+      console.log("[PointerUp]", {
+        button: event.button,
+        targetClass: event.target && event.target.className ? event.target.className : "",
+        selectedSquare: selectedSquare,
+        dragFromSquare: dragFromSquare,
+        isDragging: isDragging
+      });
+    }
     if (event.button === 2) {
+      if (rightClickCanceledDrag) {
+        rightClickCanceledDrag = false;
+
+        if (board.releasePointerCapture && board.hasPointerCapture && board.hasPointerCapture(event.pointerId)) {
+          board.releasePointerCapture(event.pointerId);
+        }
+
+        return;
+      }
+
       handleRightClickAnnotation(event);
       return;
     }
@@ -2733,7 +3281,7 @@ if (getCurrentMode() === "bot" || isTurtle3Mode()) {
   legalMovesButton.addEventListener("click", function () {
     if (isTurtle1Mode() || isTurtle2Mode()) {
       turtle3LegalMovesEnabled = false;
-    } else if (isTurtle3Mode()) {
+    } else if (isTurtle3Mode() || isBee1Mode()) {
       turtle3LegalMovesEnabled = !turtle3LegalMovesEnabled;
     } else {
       legalMovesEnabled = !legalMovesEnabled;
@@ -2751,7 +3299,8 @@ if (getCurrentMode() === "bot" || isTurtle3Mode()) {
     scheduleBotMove();
   });
 
+  createBoardThemeControls();
   applyTheme();
+  applyBoardTheme(boardTheme);
   updateLanguageUI();
-  renderBoard();
 });

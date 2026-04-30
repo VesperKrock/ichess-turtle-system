@@ -1,0 +1,752 @@
+ICHESS BOT KNOWLEDGE SYSTEM
+HỆ THỐNG KIẾN THỨC CHO BOT CỜ VUA GIÁO DỤC ICHESS
+
+File này là tài liệu nền tảng cho toàn bộ bot theo level:
+- Turtle
+- Bee
+- Các level sau này
+
+Đây KHÔNG phải tài liệu để tạo một chess engine mạnh nhất.
+Đây là tài liệu để tạo một bot giáo dục biết suy nghĩ theo đúng chương trình học Ichess.
+
+==================================================
+0. TRIẾT LÝ CỐT LÕI
+==================================================
+
+Bot trong project này không được hiểu đơn giản là “máy chơi cờ”.
+
+Bot phải được hiểu là:
+
+“Một học sinh giả lập ở đúng trình độ level đó.”
+
+Mỗi level là sự tích lũy kiến thức từ level trước.
+
+Điều này có nghĩa là:
+
+- Bot level 2 phải nắm chắc kiến thức level 1.
+- Bot level 3 phải nắm chắc kiến thức level 1 và 2.
+- Bot level 4 phải nắm chắc kiến thức level 1, 2, 3 rồi mới thêm kiến thức level 4.
+- Bot Bee 1 phải là học sinh đã vượt qua Turtle/Level 1-3, sau đó bắt đầu dùng kiến thức Level 4.
+
+QUY TẮC VÀNG:
+
+Level thấp hơn LUÔN có quyền phủ quyết level cao hơn.
+
+Ví dụ:
+- Nếu Level 4 muốn tấn công điểm yếu nhưng Level 1 phát hiện nước đó làm mất Hậu miễn phí → CẤM.
+- Nếu Level 3 muốn phát triển quân nhưng Level 2 phát hiện đang bị chiếu → CẤM.
+- Nếu Level 4 muốn tạo tactic nhưng Level 1 phát hiện tactic đó lỗ quân → CẤM.
+- Nếu một nước đi không có ý đồ rõ ràng theo Level 3 → phạt nặng hoặc loại bỏ.
+
+Bot giáo dục phải học đúng nền tảng.
+Không được dùng tactic cao nếu vẫn sai lỗi cơ bản.
+
+==================================================
+1. PIPELINE RA QUYẾT ĐỊNH TỔNG QUÁT
+==================================================
+
+Mỗi nước đi của bot phải đi qua pipeline sau:
+
+BƯỚC 1 – LEVEL 1: AN TOÀN QUÂN / MATERIAL SAFETY
+- Có quân mình đang bị ăn hơn quân không?
+- Nước đi này có làm mình mất quân không?
+- Có quân đối thủ nào đang bị ăn hơn quân không?
+- Capture có lời, hòa, hay lỗ?
+
+BƯỚC 2 – LEVEL 2: AN TOÀN VUA / KING SAFETY
+- Mình có đang bị chiếu không?
+- Có chiếu bí ngay không?
+- Vua có an toàn không?
+- Nước đi có làm vua rơi vào nguy hiểm không?
+
+BƯỚC 3 – LEVEL 3: Ý ĐỒ NƯỚC ĐI / MOVE INTENTION
+- Nước đi này có ý đồ gì?
+- Đe dọa chiếu bí?
+- Đe dọa ăn quân?
+- Phòng thủ?
+- Phát triển quân?
+- Hay là nước vô nghĩa?
+
+BƯỚC 4 – LEVEL 4: ĐIỂM YẾU VÀ TẤN CÔNG / WEAKNESS SYSTEM
+- Đối thủ có điểm yếu nào?
+- Mình có điểm yếu nào cần bảo vệ?
+- Có thể tấn công đúng điểm yếu không?
+- Có thể tạo mối đe dọa 1 nước hoặc 2 nước không?
+
+Thứ tự ưu tiên tuyệt đối:
+
+1. Không chết vua.
+2. Không mất quân ngu.
+3. Xử lý mối đe dọa trực tiếp.
+4. Có ý đồ rõ ràng.
+5. Tấn công điểm yếu.
+6. Cải thiện vị trí.
+
+==================================================
+2. LEVEL 1 – QUAN SÁT, ĂN HƠN QUÂN, PHÒNG THỦ
+==================================================
+
+Mục tiêu Level 1:
+
+Bot phải biết:
+- Quan sát quân cờ.
+- Hiểu giá trị quân.
+- Biết ăn hơn quân.
+- Biết không ăn nếu bị lỗ.
+- Biết phòng thủ để không bị ăn hơn quân.
+
+Level 1 chưa tập trung vào bảo vệ vua theo luật chuẩn.
+Ở level thấp có thể có cơ chế ăn vua riêng, nhưng từ Level 2 trở đi thì không còn.
+
+--------------------------------------------------
+2.1. GIÁ TRỊ QUÂN
+--------------------------------------------------
+
+Bot phải hiểu giá trị cơ bản:
+
+- Tốt = 1
+- Mã = 3
+- Tượng = 3
+- Xe = 5
+- Hậu = 9
+- Vua = vô giá / không dùng để trao đổi điểm
+
+Trong code có thể dùng:
+- pawn = 100
+- knight = 320
+- bishop = 330
+- rook = 500
+- queen = 900
+- king = 0 hoặc giá trị đặc biệt
+
+--------------------------------------------------
+2.2. BA CÁCH ĂN HƠN QUÂN
+--------------------------------------------------
+
+Có 3 cách chính để ăn hơn quân:
+
+1. Quân không được bảo vệ
+   - Nếu quân đối thủ không được quân nào bảo vệ, bot có thể ăn.
+   - Đây là hanging piece.
+   - Nếu ăn an toàn thì nên ưu tiên.
+
+2. Quân ít điểm ăn quân nhiều điểm
+   - Ví dụ:
+     + Tốt ăn Mã
+     + Mã ăn Hậu
+     + Tượng ăn Xe
+   - Nếu quân ít điểm ăn quân nhiều điểm thì thường là lời.
+
+3. Số quân tấn công nhiều hơn số quân phòng thủ
+   - Nếu một quân bị 2 quân tấn công nhưng chỉ có 1 quân bảo vệ, có thể bị thắng quân.
+   - Bot phải biết đếm attacker/defender.
+
+--------------------------------------------------
+2.3. KHÔNG ĐƯỢC ĂN NẾU BỊ LỖ
+--------------------------------------------------
+
+Bot không được ăn chỉ vì thấy capture.
+
+Trước khi ăn, bot phải hỏi:
+
+“Nếu mình ăn quân này, sau đó đối thủ ăn lại, mình lời hay lỗ?”
+
+Nếu lỗ điểm rõ ràng → không ăn.
+
+Ví dụ:
+- Hậu ăn Tốt nhưng bị Mã ăn lại → cực kỳ sai.
+- Xe ăn Tượng nhưng bị Tốt ăn lại, nếu không có bù → sai.
+- Mã ăn Tốt rồi bị Tốt khác ăn lại → thường là sai nếu không có tactic.
+
+Nếu đổi ngang điểm:
+- Có thể ăn hoặc không ăn.
+- Đây gọi là đổi quân.
+- Không bắt buộc.
+
+--------------------------------------------------
+2.4. PHÒNG THỦ KHI QUÂN MÌNH BỊ TẤN CÔNG
+--------------------------------------------------
+
+Nếu quân mình đang bị đe dọa theo 3 kiểu ăn hơn quân, bot phải xử lý.
+
+Thứ tự phòng thủ:
+
+1. Ăn quân đang tấn công
+   - Nếu quân đang tấn công không được bảo vệ → ăn.
+   - Nếu quân đang tấn công được bảo vệ nhưng mình không bị lỗ khi ăn → có thể ăn.
+   - Nếu ăn quân tấn công mà bị lỗ và còn cách khác tốt hơn → không nên ăn.
+
+2. Che đường tấn công
+   - Dùng một quân để chặn đường tấn công của Xe/Tượng/Hậu.
+   - Quân che không được quá đắt so với quân đang tấn công, trừ khi bắt buộc.
+   - Quân che phải tương đối an toàn.
+
+3. Chạy quân vào ô an toàn
+   - Nếu không ăn được quân tấn công và không che được, hãy chạy.
+   - Ô đến phải an toàn.
+   - Không chạy vào ô bị quân rẻ hơn ăn.
+
+4. Đưa quân lên bảo vệ
+   - Thêm defender cho quân đang bị tấn công.
+   - Nhưng cách này chỉ hợp lý nếu sau trao đổi không bị lỗ.
+   - Nếu Hậu bị Mã tấn công, việc “thêm defender” thường không đủ, vì đổi Hậu lấy Mã vẫn lỗ nặng.
+
+5. Giảm thiệt hại
+   - Nếu chắc chắn mất quân, hãy tìm cách giảm lỗ.
+   - Có thể đổi quân, ăn lại quân khác, hoặc tránh mất quân lớn hơn.
+
+--------------------------------------------------
+2.5. QUY TẮC QUAN TRỌNG: ĐƯỢC BẢO VỆ KHÔNG CÓ NGHĨA LÀ AN TOÀN
+--------------------------------------------------
+
+Một quân được bảo vệ vẫn có thể là điểm yếu.
+
+Ví dụ:
+- Hậu bị Mã tấn công.
+- Hậu có Mã khác bảo vệ.
+- Nếu đối thủ Mã ăn Hậu, mình Mã ăn lại.
+- Kết quả: mình mất Hậu 9 điểm, chỉ ăn lại Mã 3 điểm.
+- Đây là lỗ nặng.
+
+Vì vậy bot phải xét:
+- Quân bị tấn công có giá trị bao nhiêu?
+- Quân tấn công có giá trị bao nhiêu?
+- Nếu trao đổi xảy ra, mình lời hay lỗ?
+
+Không được chỉ đếm defender.
+
+--------------------------------------------------
+2.6. LEVEL 1 GATE
+--------------------------------------------------
+
+Một nước đi bị loại nếu:
+
+- Làm Hậu bị quân rẻ hơn ăn.
+- Làm Xe bị Tốt/Mã/Tượng ăn mà không có bù.
+- Làm Mã/Tượng bị Tốt ăn miễn phí.
+- Bỏ qua quân đang bị tấn công nghiêm trọng.
+- Ăn quân nhưng sau đó lỗ điểm rõ.
+- Tấn công mơ hồ nhưng để mất quân thật.
+
+Level 1 gate phải chạy trước tactic, strategy, weakness system.
+
+==================================================
+3. LEVEL 2 – VUA, CHIẾU, CHIẾU BÍ
+==================================================
+
+Mục tiêu Level 2:
+
+Bot phải biết luật Vua chuẩn và xử lý chiếu/chiếu bí.
+
+Từ Level 2 trở đi:
+- Không còn cơ chế “ăn Vua” để thắng như Level 1.
+- Phải chơi theo luật cờ vua chuẩn.
+
+--------------------------------------------------
+3.1. TÍNH CHẤT QUÂN VUA
+--------------------------------------------------
+
+Bot phải hiểu:
+
+- Vua không được đi vào ô nguy hiểm.
+- Vua không được ăn quân đang được bảo vệ.
+- Hai Vua không được đứng cạnh nhau.
+- Vua không được tự đặt mình vào thế bị chiếu.
+- Nếu đang bị chiếu, phải xử lý ngay.
+
+--------------------------------------------------
+3.2. ƯU TIÊN CHIẾU BÍ
+--------------------------------------------------
+
+Nếu bot có nước chiếu bí ngay:
+- Phải ưu tiên đi chiếu bí.
+
+Nếu bot đang bị đe dọa chiếu bí:
+- Phải ưu tiên phòng thủ.
+
+Mate > material > strategy.
+
+--------------------------------------------------
+3.3. THOÁT CHIẾU
+--------------------------------------------------
+
+Khi bị chiếu, chỉ có 3 cách chính:
+
+1. Ăn quân đang chiếu
+2. Che đường chiếu
+3. Chạy Vua
+
+Không có cách “đưa quân lên bảo vệ Vua” nếu vẫn còn bị chiếu.
+
+Bot phải chọn cách thoát chiếu hợp lệ và tốt nhất.
+
+--------------------------------------------------
+3.4. LƯỠNG CHIẾU / DOUBLE CHECK
+--------------------------------------------------
+
+Double check là tình huống rất mạnh.
+
+Bot phải:
+- Nhận diện được double check.
+- Biết rằng thường chỉ có thể chạy Vua.
+- Nếu tự tạo được double check thì tốt, nhưng không bắt buộc ép bot tìm bằng mọi giá.
+
+--------------------------------------------------
+3.5. NHẬP THÀNH VÀ BẮT TỐT QUA ĐƯỜNG
+--------------------------------------------------
+
+Bot phải hiểu:
+- Nhập thành là nước giúp an toàn Vua và nối Xe.
+- En passant là luật hợp lệ.
+- Không được làm hỏng chess.js hoặc luật cờ chuẩn.
+
+==================================================
+4. LEVEL 3 – GIAI ĐOẠN VÁN CỜ VÀ Ý ĐỒ NƯỚC ĐI
+==================================================
+
+Mục tiêu Level 3:
+
+Bot phải hiểu ván cờ đang ở giai đoạn nào và mỗi nước đi phải có ý đồ.
+
+Level 3 là cầu nối giữa “không sai cơ bản” và “bắt đầu chơi có kế hoạch”.
+
+--------------------------------------------------
+4.1. NHẬN DIỆN GIAI ĐOẠN
+--------------------------------------------------
+
+Có 3 giai đoạn:
+
+1. Khai cuộc
+2. Trung cuộc
+3. Cờ tàn
+
+--------------------------------------------------
+4.2. KHAI CUỘC
+--------------------------------------------------
+
+Khai cuộc bắt đầu từ đầu ván cho đến khi chỉ còn khoảng 2 quân chưa phát triển.
+
+Mục tiêu:
+- Phát triển quân.
+- Kiểm soát trung tâm.
+- Đưa Vua vào an toàn.
+- Chuẩn bị vào trung cuộc.
+
+Sáu nguyên tắc vàng khai cuộc:
+
+1. Kiểm soát trung tâm.
+2. Phát triển quân nhẹ.
+3. Nhập thành sớm.
+4. Không đi một quân nhiều lần nếu không cần.
+5. Không đưa Hậu ra quá sớm.
+6. Nối Xe / hoàn thành phát triển.
+
+Trong Level 3, học kỹ Khai cuộc Ý.
+Vì vậy bot Level 3/Turtle 3 có thể tập trung vào Italian Game.
+
+--------------------------------------------------
+4.3. TRUNG CUỘC
+--------------------------------------------------
+
+Trung cuộc bắt đầu khi:
+- Chỉ còn khoảng 1 quân chưa phát triển.
+- Mỗi bên còn ít nhất 4 quân trở lên, không tính Vua và Tốt.
+
+Mục tiêu:
+- Ăn hơn quân.
+- Nhận diện mối đe dọa.
+- Bắt đầu có chiến thuật.
+
+Level 4 sẽ học trung cuộc kỹ hơn.
+
+--------------------------------------------------
+4.4. CỜ TÀN
+--------------------------------------------------
+
+Cờ tàn khi:
+- Chỉ còn khoảng 3 quân trở xuống, không tính Vua và Tốt.
+
+Mục tiêu:
+- Phong cấp.
+- Dùng Vua tích cực hơn.
+- Đẩy Tốt thông.
+
+Bee 1 chưa cần cờ tàn quá mạnh.
+Bee 1 có thể yếu hơn trong cờ tàn nếu đang không hơn quân rõ.
+
+--------------------------------------------------
+4.5. MỐI ĐE DỌA / Ý ĐỒ TRÊN BÀN CỜ
+--------------------------------------------------
+
+Mỗi nước đi hay phải có ý đồ.
+
+Có 5 loại ý đồ/mối đe dọa, ưu tiên từ cao xuống thấp:
+
+1. Đe dọa chiếu bí
+   - Phải xử lý ngay.
+
+2. Đe dọa ăn quân
+   - Phải xử lý ngay nếu gây mất quân.
+
+3. Ý đồ phòng thủ
+   - Bảo vệ quân.
+   - Che đường tấn công.
+   - Chạy quân.
+   - Cứu Vua.
+   - Giảm điểm yếu.
+
+4. Ý đồ phát triển quân
+   - Phát triển quân nhẹ.
+   - Nhập thành.
+   - Kiểm soát trung tâm.
+   - Nối Xe.
+   - Đưa quân vào vị trí tốt.
+
+5. Không có ý đồ gì
+   - Đây là nước vô dụng.
+   - Phải tránh.
+
+--------------------------------------------------
+4.6. MOVE INTENTION GATE
+--------------------------------------------------
+
+Một nước đi phải có ít nhất một ý đồ hợp lệ:
+
+- Chiếu bí.
+- Đe dọa chiếu bí.
+- Ăn quân có lời.
+- Đe dọa ăn quân.
+- Phòng thủ điểm yếu.
+- Phát triển quân.
+- Cải thiện quân vào ô tốt.
+- Tạo mối đe dọa 2 nước hợp lệ.
+- Giảm điểm yếu của mình.
+- Tăng điểm yếu của đối thủ.
+
+Nếu không có ý đồ:
+- Phạt rất nặng.
+- Không được chọn nếu còn nước có ý đồ.
+
+Ví dụ nước vô nghĩa:
+- Rook move sớm khi file chưa mở.
+- Queen move không tạo threat.
+- Lặp lại quân không cần thiết.
+- Đẩy Tốt cánh không mục tiêu.
+- Chạy quân khỏi ô tốt mà không bị đe dọa.
+
+==================================================
+5. LEVEL 4 – QUY TẮC ĐIỂM YẾU
+==================================================
+
+Mục tiêu Level 4:
+
+Bot phải biết tấn công đúng điểm yếu và phòng thủ điểm yếu của mình.
+
+Level 4 là nền tảng của Bee 1.
+
+Bot không được chỉ tìm tactic.
+Bot phải tìm điểm yếu trước, rồi tactic là công cụ để khai thác điểm yếu.
+
+--------------------------------------------------
+5.1. THỨ TỰ ƯU TIÊN ĐIỂM YẾU
+--------------------------------------------------
+
+Có 5 loại điểm yếu, ưu tiên giảm dần:
+
+1. Vua luôn yếu
+   - Vua là mục tiêu cao nhất.
+   - Vua hở, chưa nhập thành, thiếu quân bảo vệ, bị nhiều quân tấn công → rất nguy hiểm.
+
+2. Quân không được phòng thủ
+   - Hanging piece.
+   - Nếu quân không được bảo vệ, nó là mục tiêu rõ.
+
+3. Quân nhiều điểm bị quân ít điểm tấn công
+   - Ví dụ:
+     + Hậu bị Mã tấn công.
+     + Xe bị Tốt tấn công.
+     + Tượng/Mã bị Tốt tấn công.
+   - Đây là điểm yếu nghiêm trọng dù quân đó có defender.
+
+4. Số quân tấn công nhiều hơn số quân phòng thủ
+   - Attacker > Defender.
+   - Có thể thắng quân bằng cách tăng áp lực.
+
+5. Số quân tấn công bằng số quân phòng thủ
+   - Đây là điểm yếu tiềm năng.
+   - Có thể thêm attacker để biến nó thành điểm yếu thật.
+
+--------------------------------------------------
+5.2. ĐIỂM YẾU CỦA ĐỐI THỦ
+--------------------------------------------------
+
+Bot phải ưu tiên:
+- Ăn quân không được bảo vệ.
+- Tấn công quân giá trị cao bằng quân giá trị thấp.
+- Thêm attacker vào quân đang có số attacker = defender.
+- Tấn công Vua nếu Vua yếu thật.
+- Tạo threat buộc đối thủ phải phản ứng.
+
+--------------------------------------------------
+5.3. ĐIỂM YẾU CỦA CHÍNH MÌNH
+--------------------------------------------------
+
+Bot cũng phải tự kiểm tra điểm yếu của mình.
+
+Nếu mình có:
+- Hậu bị quân rẻ hơn tấn công.
+- Xe bị Tốt/Mã/Tượng tấn công.
+- Mã/Tượng bị Tốt tấn công.
+- Quân không được bảo vệ đang bị attack.
+- Attacker của đối thủ nhiều hơn defender.
+
+Thì bot phải xử lý trước khi tấn công.
+
+Không được:
+- Đi nước active khi quân lớn đang bị đe dọa.
+- Đi Rook/Queen vô nghĩa khi Hậu đang bị Mã đuổi.
+- Bỏ mặc Tượng/Mã bị Tốt ăn.
+- Nghĩ rằng “có defender” là đủ an toàn.
+
+--------------------------------------------------
+5.4. CÁC ĐÒN CHIẾN THUẬT LEVEL 4
+--------------------------------------------------
+
+Tactic là công cụ khai thác điểm yếu.
+
+Các tactic phù hợp:
+
+1. Tấn công đôi / Fork
+   - Một quân tấn công 2 điểm yếu.
+
+2. Tấn công mở đường / Discovered attack
+   - Một quân di chuyển, mở đường cho quân phía sau.
+   - Có thể hiểu là tấn công đôi nâng cao:
+     + quân vừa đi tạo threat
+     + quân phía sau cũng tạo threat
+
+3. Lưỡng chiếu / Double check
+   - Rất mạnh.
+   - Không bắt buộc bot phải cố tạo, nhưng nếu thấy thì tốt.
+
+4. Ghim / Pin
+   - Ép một quân không thể di chuyển vì phía sau có điểm yếu quan trọng.
+
+5. Xiên / Skewer
+   - Tấn công điểm yếu phía trước, khi nó chạy sẽ lộ điểm yếu phía sau.
+
+6. Đánh lạc hướng / Deflection
+   - Buộc quân phòng thủ rời khỏi nhiệm vụ.
+
+7. Dụ quân / Attraction
+   - Kéo quân đối thủ vào ô xấu.
+
+8. Quá tải / Overloading
+   - Một quân phải bảo vệ quá nhiều điểm yếu.
+
+9. Loại bỏ quân phòng thủ / Removing defender
+   - Ăn hoặc đuổi quân đang bảo vệ điểm yếu.
+
+Các nhóm 6–9 có thể xem là chung một chủ đề:
+“Phá hệ thống phòng thủ của điểm yếu.”
+
+--------------------------------------------------
+5.5. MỐI ĐE DỌA 1 NƯỚC VÀ 2 NƯỚC
+--------------------------------------------------
+
+Level 3 dạy ý đồ 1 nước.
+
+Level 4 bắt đầu có mối đe dọa nâng cao 2 nước.
+
+Ví dụ:
+- Nước a4 nhìn như không có gì.
+- Nhưng ý đồ là a5.
+- Khi a5 xảy ra, quân đối thủ có thể bị kẹt hoặc bị mất.
+- Đây là delayed threat / threat 2 moves.
+
+Bot Level 4 phải có khả năng nhận diện:
+- Nước chuẩn bị tạo điểm yếu.
+- Nước chuẩn bị bẫy quân.
+- Nước chuẩn bị khiến đối thủ hết đường cứu.
+
+Nhưng bot không được dùng mối đe dọa 2 nước nếu:
+- Nước đó vi phạm Level 1.
+- Nước đó làm Vua nguy hiểm.
+- Nước đó bỏ qua threat trực tiếp của đối thủ.
+
+==================================================
+6. BEE 1 – TRIẾT LÝ RIÊNG
+==================================================
+
+Bee 1 là bài test để học sinh vượt Bee 1 lên Bee 2.
+
+Bee 1 không phải bot chơi vui.
+Bee 1 là bot kiểm tra tư duy.
+
+Triết lý Bee 1:
+
+“Đánh chắc để không thua trước, sau đó mới thắng.”
+
+Bee 1 phải:
+- Giỏi Level 1.
+- Giỏi Level 2.
+- Giỏi Level 3.
+- Bắt đầu dùng Level 4.
+
+Bee 1 không cần chơi cờ tàn quá mạnh.
+Bee 1 cần mạnh ở khai cuộc và trung cuộc.
+
+--------------------------------------------------
+6.1. BEE 1 PHẢI MẠNH Ở ĐÂU
+--------------------------------------------------
+
+Bee 1 phải mạnh ở:
+
+- Không blunder quân.
+- Không bỏ qua Hậu/Xe/Mã/Tượng đang bị attack.
+- Không ăn quân lỗ.
+- Không đi nước vô nghĩa.
+- Khai cuộc chắc.
+- Trung cuộc biết tấn công điểm yếu.
+- Biết phạt học sinh khi học sinh bỏ quân.
+- Biết ép học sinh phải suy nghĩ tactic.
+
+--------------------------------------------------
+6.2. BEE 1 ĐƯỢC YẾU Ở ĐÂU
+--------------------------------------------------
+
+Bee 1 có thể yếu hơn ở cờ tàn.
+
+Nhưng chỉ yếu khi:
+- Cờ tàn.
+- Và Bee 1 không hơn quân rõ.
+
+Nếu Bee 1 đang hơn quân trong cờ tàn:
+- Không được tha.
+- Vẫn phải ép thắng.
+- Vẫn phải ăn quân treo.
+- Vẫn phải tránh blunder.
+
+--------------------------------------------------
+6.3. BEE 1 KHÔNG ĐƯỢC LÀM GÌ
+--------------------------------------------------
+
+Bee 1 không được:
+
+- Thí quân mơ hồ.
+- Tấn công liều.
+- Chiếu cho vui.
+- Đẩy Tốt cánh vua vô nghĩa.
+- Đưa Hậu ra sớm rồi bị tempo.
+- Đi Xe sớm không mục tiêu.
+- Bỏ qua quân mình đang bị tấn công.
+- Nghĩ rằng “được bảo vệ” là an toàn.
+- Tạo tactic mà lỗ quân.
+- Chơi như engine không có hệ giáo dục.
+
+==================================================
+7. QUY TẮC CHỌN NƯỚC CHO BOT
+==================================================
+
+Một bot theo hệ Ichess nên chọn nước theo thứ tự:
+
+1. Nếu có chiếu bí ngay → đi chiếu bí.
+2. Nếu đang bị chiếu → thoát chiếu.
+3. Nếu có nguy cơ mất Hậu/Xe/Mã/Tượng → xử lý.
+4. Nếu có thể ăn quân miễn phí/an toàn → ăn.
+5. Nếu có threat mate hoặc threat ăn quân từ đối thủ → phòng thủ.
+6. Nếu đang khai cuộc → phát triển quân/nhập thành/trung tâm.
+7. Nếu đang trung cuộc → tấn công điểm yếu.
+8. Nếu có thể tạo mối đe dọa 2 nước mà an toàn → cân nhắc.
+9. Nếu không có gì cấp bách → cải thiện quân xấu nhất.
+10. Nếu nước không có ý đồ → không chọn.
+
+==================================================
+8. CẤM CÁC LỖI SAU
+==================================================
+
+Các lỗi sau là lỗi nghiêm trọng:
+
+- Bỏ Hậu khi bị Mã/Tượng/Tốt tấn công.
+- Bỏ Xe khi bị quân rẻ hơn tấn công.
+- Để Mã/Tượng bị Tốt ăn miễn phí.
+- Ăn Tốt rồi mất quân.
+- Chiếu nhưng mất quân.
+- Đi Hậu ra sớm rồi bị đuổi.
+- Đi Xe sớm không có file mở.
+- Đi cùng một quân nhiều lần trong khai cuộc.
+- Không nhập thành khi có thể và Vua còn nguy hiểm.
+- Bỏ qua chiếu bí.
+- Bỏ qua threat ăn quân.
+- Đi nước không có ý đồ.
+- Tấn công điểm yếu đối thủ nhưng để lộ điểm yếu lớn hơn của mình.
+
+==================================================
+9. GỢI Ý IMPLEMENT CHO CODE
+==================================================
+
+Nên tách hệ thống thành các layer/function rõ ràng:
+
+Level 1:
+- evaluateMaterialSafety()
+- detectHangingPieces()
+- detectBadExchange()
+- detectMaterialEmergency()
+- isSafeCapture()
+- doesMoveLoseMaterial()
+
+Level 2:
+- evaluateKingSafety()
+- detectCheck()
+- detectMateThreat()
+- getLegalCheckResponses()
+
+Level 3:
+- detectGamePhase()
+- evaluateOpeningPrinciples()
+- evaluateMoveIntent()
+- detectUselessMove()
+- detectDevelopmentMove()
+
+Level 4:
+- createWeaknessMap()
+- evaluateOwnWeakness()
+- evaluateOpponentWeakness()
+- detectImmediateThreat()
+- detectDelayedThreat()
+- evaluateTargetedAttack()
+
+Root decision:
+- chooseMoveByLayerPriority()
+- lowerLevelGate()
+- rejectMoveIfViolatesLowerLevel()
+
+Không được để evaluation tổng hợp làm mất ưu tiên layer.
+Ví dụ:
+- Một nước được +500 vì tấn công Vua nhưng -900 vì mất Hậu → phải bị loại.
+- Một nước có tactic hay nhưng vi phạm King safety → loại.
+- Một nước active nhưng không có ý đồ → phạt.
+
+==================================================
+10. QUY TẮC MỞ RỘNG CHO BEE 2, BEE 3
+==================================================
+
+Bee 2/Bee 3 có thể thêm:
+- Tactic sâu hơn.
+- Kế hoạch dài hơn.
+- Hiểu cấu trúc Tốt.
+- Cờ tàn tốt hơn.
+- Đòn phối hợp phức tạp hơn.
+- Tấn công Vua nâng cao hơn.
+
+Nhưng tuyệt đối không được phá:
+- Level 1 material safety.
+- Level 2 king safety.
+- Level 3 move intention.
+- Level 4 weakness system.
+
+Level sau là bồi đắp, không phải thay thế.
+
+==================================================
+END OF FILE
+==================================================
