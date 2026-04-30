@@ -575,77 +575,873 @@ Nhưng bot không được dùng mối đe dọa 2 nước nếu:
 - Nước đó bỏ qua threat trực tiếp của đối thủ.
 
 ==================================================
-6. BEE 1 – TRIẾT LÝ RIÊNG
+6. BEE 1 – SPEC KỸ THUẬT (LEVEL 4)
 ==================================================
 
-Bee 1 là bài test để học sinh vượt Bee 1 lên Bee 2.
+Bee 1 là bot Level 4.
 
-Bee 1 không phải bot chơi vui.
-Bee 1 là bot kiểm tra tư duy.
+Bee 1 KHÔNG phải bot mạnh nhất.
+Bee 1 là bot kiểm tra học sinh đã nắm chắc Level 1–3 hay chưa.
 
-Triết lý Bee 1:
+Mục tiêu Bee 1:
+- Không thua vì lỗi cơ bản.
+- Bắt học sinh phải suy nghĩ.
+- Phạt mọi sai lầm về quân và tư duy.
 
-“Đánh chắc để không thua trước, sau đó mới thắng.”
+--------------------------------------------------
+6.1. TRIẾT LÝ BẮT BUỘC
+--------------------------------------------------
+
+“Không mất quân trước, rồi mới thắng.”
 
 Bee 1 phải:
-- Giỏi Level 1.
-- Giỏi Level 2.
-- Giỏi Level 3.
-- Bắt đầu dùng Level 4.
-
-Bee 1 không cần chơi cờ tàn quá mạnh.
-Bee 1 cần mạnh ở khai cuộc và trung cuộc.
+- Luôn ưu tiên an toàn quân.
+- Không hy sinh.
+- Không chơi liều.
+- Không đánh theo cảm giác.
 
 --------------------------------------------------
-6.1. BEE 1 PHẢI MẠNH Ở ĐÂU
+6.2. LEVEL 1 – HARD LAW (LUẬT CỨNG)
 --------------------------------------------------
 
-Bee 1 phải mạnh ở:
+TẤT CẢ các luật sau là HARD REJECT:
 
-- Không blunder quân.
-- Không bỏ qua Hậu/Xe/Mã/Tượng đang bị attack.
-- Không ăn quân lỗ.
-- Không đi nước vô nghĩa.
-- Khai cuộc chắc.
-- Trung cuộc biết tấn công điểm yếu.
-- Biết phạt học sinh khi học sinh bỏ quân.
-- Biết ép học sinh phải suy nghĩ tactic.
+1. Không được bỏ quân giá trị cao:
+   - Hậu bị quân rẻ hơn attack → phải xử lý.
+   - Xe bị Tốt/Mã/Tượng attack → phải xử lý.
+   - Mã/Tượng bị Tốt attack → phải xử lý.
 
---------------------------------------------------
-6.2. BEE 1 ĐƯỢC YẾU Ở ĐÂU
---------------------------------------------------
+2. Không được ăn nếu lỗ:
+   - Nếu capture dẫn tới exchange lỗ → CẤM.
 
-Bee 1 có thể yếu hơn ở cờ tàn.
+3. Không được đi vào ô chết:
+   - Nếu quân đi vào ô bị quân rẻ hơn attack → CẤM.
 
-Nhưng chỉ yếu khi:
-- Cờ tàn.
-- Và Bee 1 không hơn quân rõ.
+4. Không được bỏ qua material emergency:
+   - Nếu có quân đang bị ăn hơn quân → phải xử lý trước.
 
-Nếu Bee 1 đang hơn quân trong cờ tàn:
-- Không được tha.
-- Vẫn phải ép thắng.
-- Vẫn phải ăn quân treo.
-- Vẫn phải tránh blunder.
+5. Không được “tưởng là an toàn”:
+   - Defender không đủ nếu exchange lỗ.
 
 --------------------------------------------------
-6.3. BEE 1 KHÔNG ĐƯỢC LÀM GÌ
+6.3. MATERIAL EMERGENCY SYSTEM
 --------------------------------------------------
 
-Bee 1 không được:
+Material emergency xảy ra khi:
 
-- Thí quân mơ hồ.
-- Tấn công liều.
-- Chiếu cho vui.
-- Đẩy Tốt cánh vua vô nghĩa.
-- Đưa Hậu ra sớm rồi bị tempo.
-- Đi Xe sớm không mục tiêu.
-- Bỏ qua quân mình đang bị tấn công.
-- Nghĩ rằng “được bảo vệ” là an toàn.
-- Tạo tactic mà lỗ quân.
-- Chơi như engine không có hệ giáo dục.
+- Quân không được bảo vệ bị attack.
+- Quân bị quân rẻ hơn attack.
+- Attacker > Defender.
+- Forced losing exchange tồn tại.
+
+Khi có emergency:
+
+- Chỉ xét các nước xử lý emergency.
+- Không được xét nước khác.
+- Không được fallback.
+
+Move xử lý emergency hợp lệ khi:
+- Chạy vào ô an toàn.
+- Ăn attacker an toàn.
+- Che đường attack (nếu có thể).
+- Đổi quân không lỗ.
+
+--------------------------------------------------
+6.4. LEVEL 2 – KING SAFETY (LUẬT CỨNG)
+--------------------------------------------------
+
+Ưu tiên tuyệt đối:
+
+1. Mate → đi ngay.
+2. Bị chiếu → xử lý.
+3. Bị dọa mate → xử lý.
+
+Không move nào được phép:
+- để vua vào ô bị chiếu
+- bỏ qua chiếu
+
+--------------------------------------------------
+6.5. LEVEL 3 – MOVE INTENTION (LUẬT CỨNG MỀM)
+--------------------------------------------------
+
+Mỗi move phải có ít nhất 1 ý đồ:
+
+- WIN_MATERIAL
+- DEFEND
+- DEVELOP
+- CONTROL_CENTER
+- ATTACK_WEAKNESS
+- IMPROVE_POSITION
+
+Nếu:
+- move không có ý đồ
+→ reject nếu còn move khác
+
+--------------------------------------------------
+6.6. KHAI CUỘC – BẮT BUỘC ỔN ĐỊNH
+--------------------------------------------------
+
+Trong khai cuộc:
+
+Bee 1 phải:
+- kiểm soát trung tâm bằng Tốt
+- phát triển quân nhẹ
+- nhập thành
+
+CẤM:
+- đưa 2 Mã ra sớm mà không contest center
+- Ne4 / Ng4 nếu dễ bị Tốt đuổi
+- đẩy Tốt vô nghĩa
+- đưa Hậu ra sớm
+
+Ưu tiên:
+- ...e5 / ...d5 / ...c5
+
+--------------------------------------------------
+6.7. LEVEL 4 – WEAKNESS SYSTEM
+--------------------------------------------------
+
+Bee 1 phải:
+
+1. Bảo vệ điểm yếu của mình trước.
+2. Sau đó mới tấn công điểm yếu đối thủ.
+
+Không được:
+- tấn công khi đang có điểm yếu lớn hơn
+
+--------------------------------------------------
+6.8. KHÔNG SACRIFICE
+--------------------------------------------------
+
+Bee 1 KHÔNG ĐƯỢC:
+
+- sacrifice
+- compensation
+- tactical gamble
+
+Nếu mất material mà không lấy lại ngay:
+→ reject
+
+--------------------------------------------------
+6.9. PRIORITY ORDER
+--------------------------------------------------
+
+1. Mate
+2. Thoát chiếu
+3. Material emergency
+4. Ăn quân an toàn
+5. Phòng thủ
+6. Khai cuộc chuẩn
+7. Tấn công điểm yếu
+8. Improve position
+
+--------------------------------------------------
+6.10. GIỚI HẠN CỦA BEE 1
+--------------------------------------------------
+
+Bee 1 KHÔNG cần:
+- thấy mate-in-3
+- tactic sâu
+- cờ tàn mạnh
+
+Bee 1 phải:
+- không blunder
+- ép học sinh sai
+
+--------------------------------------------------
+6.11. TIÊU CHÍ ĐẠT CHUẨN
+--------------------------------------------------
+
+Bee 1 được coi là đúng nếu:
+
+- Không bỏ quân ngu
+- Không bỏ qua quân miễn phí
+- Không đi nước vô nghĩa
+- Khai cuộc ổn định
+- Trung cuộc biết ép điểm yếu
 
 ==================================================
-7. QUY TẮC CHỌN NƯỚC CHO BOT
+7. BEE 2 – SPEC KỸ THUẬT LEVEL 5
+==================================================
+
+Bee 2 là bot Level 5.
+
+Bee 2 là bước nâng cấp trực tiếp từ Bee 1.
+
+Nếu Bee 1 là bot “đánh chắc để không thua trước”, thì Bee 2 là bot:
+
+“Biết chuyển ưu thế thành chiến thắng.”
+
+Bee 2 không chỉ không blunder.
+Bee 2 phải biết:
+- Khi hơn quân thì phải thắng.
+- Khi hơn ít thì phải đơn giản hóa đúng cách.
+- Khi không thể đơn giản hóa thì phải tấn công điểm yếu.
+- Khi vào cờ tàn thì phải biết dùng Vua, phối hợp quân và hỗ trợ phong cấp.
+
+Bee 2 là sự tích lũy của:
+- Level 1: An toàn quân / Material Safety
+- Level 2: An toàn Vua / King Safety
+- Level 3: Giai đoạn và ý đồ nước đi
+- Level 4: Quy tắc điểm yếu
+- Level 5: Xử lý ưu thế + Quy tắc cờ tàn
+
+Bee 2 không được phá bất kỳ kiến thức nào từ Level 1–4.
+
+--------------------------------------------------
+7.1. TRIẾT LÝ BẮT BUỘC CỦA BEE 2
+--------------------------------------------------
+
+Bee 2 là “Diêm Vương” của học sinh ở giai đoạn này.
+
+Bee 2 phải khiến học sinh hiểu rằng:
+
+- Nếu con bỏ quân, con sẽ bị ép thắng.
+- Nếu con vào cờ tàn thua quân, con rất khó sống.
+- Nếu con phòng thủ sai khi kém quân, con sẽ bị đổi quân rồi thua.
+- Nếu con để nhiều điểm yếu, bot sẽ đánh từng điểm yếu một.
+- Nếu con không biết cờ tàn, con sẽ bị phong cấp.
+
+Bee 2 phải đánh hay ở cả 3 giai đoạn:
+- Khai cuộc: an toàn, không mất quân, không cần quá sắc bén.
+- Trung cuộc: cực mạnh trong xử lý ưu thế và đánh điểm yếu.
+- Cờ tàn: mạnh hơn Bee 1 rõ rệt, biết trung tâm hóa Vua, phối hợp quân và hỗ trợ phong cấp.
+
+Bee 2 không được chơi kiểu:
+- hy sinh ngu
+- đánh liều
+- bỏ quân vì “có pressure”
+- nhây khi đã có đường thắng
+- đổi quân sai loại khi hơn/thua quân
+- vào cờ tàn mà không biết kế hoạch
+
+--------------------------------------------------
+7.2. ĐIỀU KIỆN ĐỂ BEE 2 ĐƯỢC PHÉP TỒN TẠI
+--------------------------------------------------
+
+Bee 2 chỉ có ý nghĩa nếu nó đã nắm chắc Bee 1.
+
+Điều này nghĩa là Bee 2 PHẢI có toàn bộ luật cứng của Bee 1:
+
+1. Không bỏ Hậu/Xe/Mã/Tượng.
+2. Không ăn quân nếu bị lỗ.
+3. Không đi vào ô bị quân rẻ hơn ăn.
+4. Không bỏ qua material emergency.
+5. Không bỏ qua chiếu.
+6. Không đi nước vô nghĩa.
+7. Không chơi sacrifice mơ hồ.
+8. Không attack nếu Level 1 hoặc Level 2 báo nguy.
+9. Không để tactic/weakness override safety.
+
+Nếu Bee 2 vi phạm Level 1–4, thì mọi kiến thức Level 5 đều vô nghĩa.
+
+Quy tắc vàng:
+
+Level 5 KHÔNG BAO GIỜ được override Level 1–4.
+
+Ví dụ:
+- Bee 2 muốn đổi Hậu vì đang hơn quân, nhưng nước đổi Hậu làm mất Xe miễn phí → CẤM.
+- Bee 2 muốn trung tâm hóa Vua trong cờ tàn, nhưng ô Vua đi tới bị chiếu hoặc bị tactic → CẤM.
+- Bee 2 muốn đẩy Tốt phong cấp, nhưng Tốt bị bắt miễn phí và không có bù → CẤM.
+- Bee 2 muốn chiếu bí, nhưng đó không phải forced line và làm mất Hậu → CẤM.
+
+--------------------------------------------------
+7.3. HAI TRỌNG TÂM CỦA LEVEL 5 / BEE 2
+--------------------------------------------------
+
+Bee 2 có hai kiến thức cốt lõi:
+
+1. Phương pháp xử lý ưu thế khi hơn quân.
+2. Quy tắc cờ tàn.
+
+Hai phần này phải được implement rõ ràng trong bot.
+
+Không được chỉ cộng điểm chung chung kiểu:
+- material tốt hơn
+- endgame bonus
+- king activity
+
+Phải có logic cụ thể:
+- Khi hơn nhiều thì tìm đường kết thúc.
+- Khi hơn ít thì đổi đúng loại quân.
+- Khi không đổi được thì đánh điểm yếu.
+- Khi cờ tàn thì dùng Vua và Tốt đúng mục tiêu.
+
+==================================================
+7A. PHƯƠNG PHÁP XỬ LÝ ƯU THẾ KHI HƠN QUÂN
+==================================================
+
+--------------------------------------------------
+7A.1. ĐỊNH NGHĨA ƯU THẾ
+--------------------------------------------------
+
+Bee 2 phải biết phân loại ưu thế theo material balance.
+
+Có thể dùng giá trị code:
+- Tốt = 100
+- Mã = 320
+- Tượng = 330
+- Xe = 500
+- Hậu = 900
+
+Phân loại gợi ý:
+
+1. Cân bằng hoặc gần cân bằng:
+   - materialBalance từ -100 đến +100
+
+2. Hơn nhẹ:
+   - hơn khoảng 1 Tốt đến dưới 1 quân nhẹ
+   - +100 đến +299
+
+3. Hơn vừa:
+   - hơn khoảng 1 Mã hoặc 1 Tượng
+   - +300 đến +499
+
+4. Hơn rõ:
+   - hơn khoảng 1 Xe hoặc 2 quân nhẹ
+   - +500 đến +899
+
+5. Hơn rất lớn:
+   - hơn Hậu, hoặc hơn quá nhiều quân
+   - từ +900 trở lên
+
+Bee 2 phải xử lý khác nhau tùy mức ưu thế.
+
+--------------------------------------------------
+7A.2. NGUYÊN TẮC 1 – HƠN NHIỀU PHẢI TÌM CÁCH KẾT THÚC
+--------------------------------------------------
+
+Khi Bee 2 hơn quân rất lớn, mục tiêu không phải là “ăn thêm cho vui”.
+
+Mục tiêu là:
+
+- Tìm chiếu bí.
+- Tạo lưới chiếu bí.
+- Ép Vua đối phương.
+- Không để đối thủ có cơ hội lật ngược.
+
+Lý do:
+Khi đã hơn rất nhiều, càng kéo dài ván cờ càng tạo cơ hội cho đối thủ:
+- gài tactic
+- tạo perpetual check
+- phong cấp bất ngờ
+- bắt lại quân
+- gây rối trong cờ tàn
+
+Bee 2 phải hiểu:
+
+“Hơn nhiều thì thắng nhanh, không nhây.”
+
+Nhưng phải có điều kiện:
+
+Bee 2 chỉ được all-in chiếu bí nếu:
+- Vua mình vẫn an toàn.
+- Không bỏ Hậu/Xe miễn phí.
+- Có đủ quân tham gia tấn công.
+- Đường attack có cơ sở thật.
+- Không phải sacrifice mơ hồ.
+
+Nếu không có đường mate rõ:
+- Bee 2 phải cải thiện quân.
+- Ép Vua đối thủ.
+- Cắt đường chạy.
+- Đổi quân nguy hiểm.
+- Đưa về cờ tàn thắng.
+
+--------------------------------------------------
+7A.3. HƠN NHIỀU – ƯU TIÊN CHỌN NƯỚC
+--------------------------------------------------
+
+Khi hơn rất lớn, thứ tự ưu tiên của Bee 2:
+
+1. Mate-in-1 nếu có.
+2. Forced mate ngắn nếu detect được an toàn.
+3. Chiếu buộc Vua vào vị trí xấu hơn.
+4. Đưa quân mạnh vào gần Vua đối thủ.
+5. Cắt đường chạy của Vua đối thủ.
+6. Đổi Hậu nếu đối thủ còn Hậu và mình vẫn thắng dễ sau đổi.
+7. Ăn quân miễn phí nếu không làm mất thế tấn công.
+8. Đưa về cờ tàn thắng chắc.
+
+Không được:
+- đi nước chờ vô nghĩa
+- ăn Tốt lẻ nếu có thể ép mate
+- để Hậu đối thủ tạo perpetual check
+- bỏ qua chiếu bí rõ
+- kéo dài ván đấu khi có đường thắng sạch
+
+--------------------------------------------------
+7A.4. NGUYÊN TẮC 2 – HƠN ÍT PHẢI ĐỔI QUÂN NGUY HIỂM
+--------------------------------------------------
+
+Khi Bee 2 chỉ hơn ít, ví dụ hơn 1 Mã hoặc 1 Tượng, mục tiêu chính là:
+
+“Đơn giản hóa thế cờ mà vẫn giữ ưu thế.”
+
+Cách đơn giản hóa:
+- Đổi quân mạnh của đối thủ.
+- Giảm khả năng phản công.
+- Đưa ván cờ về cờ tàn dễ thắng.
+
+Thứ tự đổi quân khi ĐANG HƠN QUÂN:
+
+1. Đổi Hậu trước nếu an toàn.
+2. Sau đó đổi Xe.
+3. Sau đó đổi Tượng/Mã.
+4. Không đổi Tốt quá sớm nếu việc đổi Tốt làm mất cơ hội phong cấp hoặc làm thế Tốt xấu đi.
+
+Nói ngắn:
+
+Đang hơn quân → đổi quân mạnh, giữ ưu thế.
+
+Lý do:
+- Hậu là quân tạo phản công mạnh nhất.
+- Xe cũng tạo phản công và chiếu ngang/dọc.
+- Tượng/Mã tạo tactic.
+- Tốt là tài nguyên cờ tàn, không nên đổi hết quá sớm nếu không cần.
+
+--------------------------------------------------
+7A.5. ĐIỀU KIỆN ĐƯỢC ĐỔI QUÂN KHI HƠN
+--------------------------------------------------
+
+Bee 2 chỉ được đổi quân khi:
+
+- Sau đổi vẫn hơn quân.
+- Không tạo Tốt thông nguy hiểm cho đối thủ.
+- Không làm Vua mình yếu hơn nghiêm trọng.
+- Không bỏ lỡ mate rõ.
+- Không đổi quân đang active lấy quân bị động nếu làm mất ưu thế tấn công.
+- Không đổi quân khiến đối thủ vào cờ tàn hòa rõ.
+
+Ví dụ đúng:
+- Hơn 1 Mã, đổi Hậu để giảm phản công.
+- Hơn Xe, đổi Hậu và một cặp Xe nếu vẫn thắng cờ tàn.
+- Hơn quân trong trung cuộc, đổi bớt quân tấn công của đối thủ.
+
+Ví dụ sai:
+- Hơn 1 Mã nhưng đổi hết Tốt cánh có Tốt thông của mình.
+- Đổi Hậu khi đang có mate-in-1 hoặc mate rất rõ.
+- Đổi Xe vào thế Tốt tàn hòa.
+- Đổi quân làm đối thủ có passed pawn không chặn được.
+
+--------------------------------------------------
+7A.6. KHI ĐANG THUA QUÂN THÌ LÀM NGƯỢC LẠI
+--------------------------------------------------
+
+Nếu Bee 2 đang thua quân, mục tiêu không phải là đổi quân mạnh.
+
+Khi đang thua quân:
+- Cố gắng giữ Hậu.
+- Cố gắng giữ Xe.
+- Giữ quân có khả năng tạo tactic.
+- Tránh đổi quân mạnh nếu sau đổi sẽ vào cờ tàn thua.
+- Tìm counterplay.
+- Tấn công Vua.
+- Tạo threat.
+- Tìm perpetual check nếu có.
+- Tấn công điểm yếu để gỡ lại.
+
+Thứ tự khi đang thua:
+- Tránh đổi Hậu.
+- Tránh đổi Xe.
+- Chỉ đổi quân nếu:
+  + lấy lại material
+  + thoát nguy hiểm
+  + tạo cơ hội hòa
+  + tránh mate
+
+Nói ngắn:
+
+Đang hơn → đổi quân mạnh.
+Đang thua → giữ quân mạnh.
+
+--------------------------------------------------
+7A.7. NGUYÊN TẮC 3 – KHÔNG ĐỔI ĐƯỢC THÌ ĐÁNH ĐIỂM YẾU
+--------------------------------------------------
+
+Khi Bee 2 hơn ít nhưng không thể đổi quân mạnh vì đối thủ thủ rất kỹ, Bee 2 phải quay lại kiến thức Level 4:
+
+“Tấn công điểm yếu.”
+
+Lý do:
+Khi đối thủ ít quân hơn:
+- họ có ít quân để phòng thủ hơn
+- dễ có nhiều điểm yếu tiềm năng hơn
+- một quân có thể bị quá tải
+- việc bảo vệ nhiều điểm yếu cùng lúc khó hơn
+
+Bee 2 phải tìm:
+- quân không được bảo vệ
+- quân bị quân rẻ hơn tấn công
+- điểm có attacker = defender
+- điểm có attacker > defender
+- Vua yếu
+- quân phòng thủ bị quá tải
+- Tốt yếu
+- ô yếu quanh Vua
+
+Sau đó Bee 2 phải:
+- tăng attacker
+- ép đối thủ phòng thủ
+- đổi quân phòng thủ
+- kéo giãn quân phòng thủ
+- tạo threat mới ở điểm yếu thứ hai
+
+--------------------------------------------------
+7A.8. CÁCH BEE 2 NÊN PHẠT HỌC SINH KHI HƠN QUÂN
+--------------------------------------------------
+
+Bee 2 phải làm học sinh cảm thấy:
+
+“Nếu con mất quân, bot sẽ ép rất khó chịu.”
+
+Khi Bee 2 hơn quân, bot nên:
+- đổi Hậu nếu an toàn
+- đổi Xe nếu an toàn
+- giữ cấu trúc tốt chắc
+- không để phản công
+- ép điểm yếu
+- đưa Vua an toàn
+- chuyển sang cờ tàn thắng
+
+Không nên:
+- tiếp tục săn Tốt lẻ khi có thể đổi Hậu
+- attack liều
+- bỏ qua threat của đối thủ
+- nhây không lý do
+- để học sinh tạo counterplay
+
+--------------------------------------------------
+7A.9. IMPLEMENT GỢI Ý CHO XỬ LÝ ƯU THẾ
+--------------------------------------------------
+
+Nên có các function:
+
+- classifyMaterialAdvantage(game, botColor)
+- shouldSeekMate(game, botColor)
+- shouldSimplify(game, botColor)
+- evaluateTradeWhenAhead(game, move, botColor)
+- evaluateTradeWhenBehind(game, move, botColor)
+- getSimplificationScore(game, move, botColor)
+- getCounterplayRisk(game, botColor)
+- getWeaknessPressureWhenAhead(game, botColor)
+- chooseAdvantageConversionMove(game, botColor)
+
+Logic tổng quát:
+
+Nếu hơn rất lớn:
+- ưu tiên mate / ép Vua / đổi Hậu an toàn
+
+Nếu hơn vừa:
+- ưu tiên đổi Hậu/Xe
+- tránh đổi Tốt sớm vô nghĩa
+- giữ material safety
+
+Nếu hơn ít:
+- tìm đổi quân nguy hiểm
+- nếu không đổi được, tấn công điểm yếu
+
+Nếu thua:
+- giữ Hậu/Xe
+- tránh đổi quân mạnh
+- tìm tactic/counterplay nhưng không sacrifice ngu
+
+==================================================
+7B. QUY TẮC CỜ TÀN
+==================================================
+
+--------------------------------------------------
+7B.1. ĐỊNH NGHĨA CỜ TÀN
+--------------------------------------------------
+
+Theo hệ Ichess:
+
+Cờ tàn bắt đầu khi:
+- chỉ còn khoảng 3 quân trở xuống
+- không tính Vua và Tốt
+
+Ví dụ:
+- Vua + Xe + vài Tốt
+- Vua + Tượng + vài Tốt
+- Vua + Mã + vài Tốt
+- Vua + Hậu + vài Tốt
+- Vua + 2 quân nhẹ + vài Tốt
+
+Bee 2 phải chơi cờ tàn tốt hơn Bee 1 rõ rệt.
+
+Bee 1 có thể yếu ở cờ tàn.
+Bee 2 thì không.
+
+--------------------------------------------------
+7B.2. MỤC TIÊU LỚN CỦA CỜ TÀN
+--------------------------------------------------
+
+Mục tiêu lớn của cờ tàn:
+
+1. Phong cấp Tốt.
+2. Dùng Vua tích cực.
+3. Phối hợp toàn bộ lực lượng.
+4. Ngăn đối thủ phong cấp.
+5. Nếu hơn nhiều thì chiếu bí.
+
+Bee 2 phải hiểu:
+
+“Cờ tàn không phải chỉ là ăn quân. Cờ tàn là đưa Tốt lên phong cấp bằng sự hỗ trợ của Vua và quân còn lại.”
+
+--------------------------------------------------
+7B.3. QUY TẮC 1 – TRUNG TÂM HÓA VUA
+--------------------------------------------------
+
+Trong khai cuộc và trung cuộc, Vua cần an toàn.
+
+Trong cờ tàn, khi quân đã ít đi:
+- Vua trở thành quân chiến đấu.
+- Vua nên tiến ra trung tâm.
+- Vua nên hỗ trợ Tốt.
+- Vua nên chặn Vua đối thủ.
+- Vua nên bảo vệ điểm yếu.
+
+Bee 2 phải cộng điểm cho:
+- Vua tiến gần trung tâm.
+- Vua tiến gần Tốt thông của mình.
+- Vua tiến gần Tốt yếu của đối thủ.
+- Vua hỗ trợ quân/tốt.
+
+Nhưng không được trung tâm hóa Vua một cách mù quáng.
+
+--------------------------------------------------
+7B.4. QUY TẮC 2 – AN TOÀN VUA KHI TRUNG TÂM HÓA
+--------------------------------------------------
+
+Trung tâm hóa Vua không có nghĩa là đi Vua một mình.
+
+Bee 2 phải hiểu:
+
+“Vua mạnh trong cờ tàn, nhưng Vua vẫn có thể bị dứt điểm nếu đi sai.”
+
+Không được:
+- đưa Vua vào fork
+- đưa Vua vào skewer
+- đưa Vua vào mạng chiếu
+- đưa Vua ra xa quân mình khi đối thủ còn Hậu/Xe nguy hiểm
+- để Vua bị cắt khỏi Tốt thông của mình
+
+Vua nên đi cùng:
+- Tốt thông
+- Xe
+- Hậu
+- quân nhẹ còn lại
+
+Nếu đối thủ còn Hậu hoặc Xe:
+- Vua phải cẩn thận hơn.
+- Không được đi vào ô dễ bị chiếu liên tục.
+- Không được bỏ quân phòng thủ Vua nếu vẫn còn danger.
+
+--------------------------------------------------
+7B.5. QUY TẮC 3 – PHỐI HỢP TOÀN BỘ LỰC LƯỢNG
+--------------------------------------------------
+
+Trong cờ tàn, Bee 2 không được đi từng quân riêng lẻ vô nghĩa.
+
+Bee 2 phải phối hợp:
+- Vua hỗ trợ Tốt.
+- Xe cắt Vua đối phương.
+- Hậu hỗ trợ phong cấp hoặc chiếu bí.
+- Tượng/Mã hỗ trợ ô phong cấp.
+- Quân còn lại bảo vệ Tốt thông.
+
+Không được:
+- đẩy Tốt một mình nếu bị bắt.
+- đưa Vua đi xa Tốt cần hỗ trợ.
+- dùng Xe/Hậu đi ăn Tốt lẻ trong khi Tốt thông của mình cần bảo vệ.
+- để quân mạnh đứng ngoài cuộc.
+
+--------------------------------------------------
+7B.6. QUY TẮC 4 – HỖ TRỢ PHONG CẤP CHỐT
+--------------------------------------------------
+
+Mục tiêu lớn của cờ tàn là phong cấp.
+
+Bee 2 phải:
+- nhận diện Tốt thông.
+- đẩy Tốt thông khi an toàn.
+- đưa Vua hỗ trợ Tốt thông.
+- dùng quân mạnh bảo vệ đường phong cấp.
+- ngăn Vua đối thủ chặn Tốt.
+- tránh đổi hết Tốt nếu đang cần thắng.
+
+Bee 2 không được:
+- đẩy Tốt nếu Tốt sẽ bị bắt miễn phí.
+- đổi Tốt thông lấy Tốt thường nếu không cần.
+- bỏ qua cơ hội tạo Tốt thông.
+- ăn Tốt cánh xa trong khi Tốt thông chính đang cần hỗ trợ.
+
+--------------------------------------------------
+7B.7. QUY TẮC 5 – HẠN CHẾ VUA ĐỐI THỦ
+--------------------------------------------------
+
+Đây là nguyên tắc bổ sung rất quan trọng.
+
+Bee 2 nên biết:
+- cắt đường Vua đối thủ
+- ép Vua đối thủ ra xa Tốt thông
+- dùng Xe/Hậu để cắt hàng/cột
+- dùng Vua để chiếm ô quan trọng
+- không cho Vua đối thủ vào vùng phong cấp
+
+Ví dụ:
+- Xe có thể cắt Vua đối phương theo hàng/cột.
+- Vua có thể chiếm ô trước mặt Tốt thông.
+- Hậu có thể vừa hỗ trợ phong cấp vừa cắt Vua.
+
+--------------------------------------------------
+7B.8. QUY TẮC CỜ TÀN KHI ĐANG HƠN
+--------------------------------------------------
+
+Nếu Bee 2 hơn quân trong cờ tàn:
+
+Mục tiêu:
+- đổi quân mạnh nếu vẫn thắng
+- giữ Tốt quan trọng
+- tạo Tốt thông
+- trung tâm hóa Vua
+- ép phong cấp
+- không cho đối thủ counterplay
+
+Bee 2 nên:
+- đổi Hậu nếu sợ perpetual check
+- đổi Xe nếu cờ tàn Tốt thắng
+- giữ quân nếu cần hỗ trợ phong cấp
+- dùng Vua và quân còn lại để ép
+
+Không nên:
+- săn Tốt vô nghĩa
+- bỏ Tốt thông
+- để đối thủ tạo Tốt thông xa
+- đổi vào thế hòa rõ
+
+--------------------------------------------------
+7B.9. QUY TẮC CỜ TÀN KHI ĐANG THUA
+--------------------------------------------------
+
+Nếu Bee 2 thua quân trong cờ tàn:
+
+Mục tiêu:
+- cầu hòa
+- giữ quân mạnh
+- tạo Tốt thông
+- tìm perpetual check
+- chặn Tốt đối thủ
+- đổi bớt Tốt nếu giúp hòa
+- giữ Vua gần vùng phong cấp
+
+Bee 2 không nên:
+- đổi hết quân mạnh nếu sau đó cờ Tốt thua
+- bỏ Tốt thông
+- để Vua bị cắt khỏi Tốt
+- đi Vua quá xa
+
+Nếu đang thua:
+- giữ Hậu/Xe nếu có thể
+- tạo counterplay
+- tìm điểm yếu của đối thủ
+- ưu tiên ngăn phong cấp
+
+--------------------------------------------------
+7B.10. IMPLEMENT GỢI Ý CHO CỜ TÀN
+--------------------------------------------------
+
+Nên có các function:
+
+- detectEndgame(game)
+- countNonKingNonPawnPieces(game)
+- evaluateKingCentralization(game, color)
+- evaluateKingSafetyInEndgame(game, color)
+- detectPassedPawns(game, color)
+- evaluatePassedPawnPush(game, move, color)
+- evaluatePromotionSupport(game, color)
+- evaluateOpponentPromotionThreat(game, color)
+- evaluatePieceCoordinationEndgame(game, color)
+- evaluateCutOffEnemyKing(game, color)
+- chooseEndgamePlanMove(game, color)
+
+Endgame scoring nên gồm:
+- King activity
+- Passed pawn
+- Promotion distance
+- King support
+- Piece coordination
+- Enemy king cutoff
+- Stopping opponent passed pawn
+- Avoiding stalemate/mate mistakes
+
+==================================================
+7C. BEE 2 ROOT PRIORITY
+==================================================
+
+Bee 2 chọn nước theo thứ tự:
+
+1. Nếu có mate ngay → đi mate.
+2. Nếu đang bị chiếu → thoát chiếu.
+3. Nếu có material emergency → xử lý.
+4. Nếu có mate threat của đối thủ → xử lý.
+5. Nếu có thể ăn quân miễn phí/an toàn → ăn.
+6. Nếu đang hơn rất nhiều → tìm cách kết thúc hoặc ép Vua.
+7. Nếu đang hơn vừa/ít → đổi quân nguy hiểm an toàn.
+8. Nếu đổi không được → tấn công điểm yếu.
+9. Nếu đang cờ tàn → theo quy tắc cờ tàn:
+   - trung tâm hóa Vua
+   - hỗ trợ phong cấp
+   - phối hợp quân
+   - hạn chế Vua đối thủ
+10. Nếu không có gì cấp bách → cải thiện quân xấu nhất.
+11. Không chọn nước không có ý đồ.
+
+==================================================
+7D. BEE 2 KHÔNG ĐƯỢC LÀM GÌ
+==================================================
+
+Bee 2 không được:
+
+- phá luật Level 1–4
+- bỏ quân
+- thí quân ngu
+- đổi quân sai khi đang thua
+- giữ Hậu vô lý khi đang hơn và có thể đổi an toàn
+- nhây khi có đường thắng
+- vào cờ tàn mà không trung tâm hóa Vua
+- đẩy Tốt thông không được hỗ trợ
+- bỏ qua Tốt thông của đối thủ
+- đổi Tốt quá sớm khi đang cần thắng
+- đi Vua một mình vào nguy hiểm
+- attack Vua khi không đủ quân
+- chơi move không có ý đồ
+
+==================================================
+7E. TIÊU CHÍ BEE 2 ĐẠT CHUẨN
+==================================================
+
+Bee 2 đạt chuẩn nếu:
+
+1. Không blunder như Bee 1.
+2. Khi hơn quân, biết chuyển ưu thế thành thắng.
+3. Khi hơn ít, biết đổi quân mạnh.
+4. Khi hơn nhiều, biết tìm mate hoặc ép thắng nhanh.
+5. Khi không đổi được, biết đánh điểm yếu.
+6. Khi vào cờ tàn, biết trung tâm hóa Vua.
+7. Biết hỗ trợ Tốt phong cấp.
+8. Biết ngăn đối thủ phong cấp.
+9. Biết phối hợp Vua + quân + Tốt.
+10. Không chơi cờ tàn như trung cuộc.
+11. Không đánh liều để thắng nhanh.
+12. Không để học sinh dễ lật thế khi đã thua quân.
+
+==================================================
+END OF BEE 2 / LEVEL 5 SPEC
+==================================================
+
+==================================================
+8. QUY TẮC CHỌN NƯỚC CHO BOT
 ==================================================
 
 Một bot theo hệ Ichess nên chọn nước theo thứ tự:
@@ -662,7 +1458,7 @@ Một bot theo hệ Ichess nên chọn nước theo thứ tự:
 10. Nếu nước không có ý đồ → không chọn.
 
 ==================================================
-8. CẤM CÁC LỖI SAU
+9. CẤM CÁC LỖI SAU
 ==================================================
 
 Các lỗi sau là lỗi nghiêm trọng:
@@ -682,7 +1478,7 @@ Các lỗi sau là lỗi nghiêm trọng:
 - Tấn công điểm yếu đối thủ nhưng để lộ điểm yếu lớn hơn của mình.
 
 ==================================================
-9. GỢI Ý IMPLEMENT CHO CODE
+10. GỢI Ý IMPLEMENT CHO CODE
 ==================================================
 
 Nên tách hệ thống thành các layer/function rõ ràng:
@@ -727,11 +1523,13 @@ Ví dụ:
 - Một nước có tactic hay nhưng vi phạm King safety → loại.
 - Một nước active nhưng không có ý đồ → phạt.
 
+
+
 ==================================================
-10. QUY TẮC MỞ RỘNG CHO BEE 2, BEE 3
+11. QUY TẮC MỞ RỘNG CHO BEE 3
 ==================================================
 
-Bee 2/Bee 3 có thể thêm:
+Bee 3 có thể thêm:
 - Tactic sâu hơn.
 - Kế hoạch dài hơn.
 - Hiểu cấu trúc Tốt.
@@ -744,6 +1542,7 @@ Nhưng tuyệt đối không được phá:
 - Level 2 king safety.
 - Level 3 move intention.
 - Level 4 weakness system.
+- Level 5 
 
 Level sau là bồi đắp, không phải thay thế.
 

@@ -440,7 +440,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateLegalMovesButtonText(mode) {
     const displayMode = mode || currentMode;
     const lockedOff = isLegalMovesLockedOffMode(displayMode);
-    const enabled = displayMode === "turtle-3" || displayMode === "bee-1" ? turtle3LegalMovesEnabled : legalMovesEnabled;
+    const enabled = displayMode === "turtle-3" || displayMode === "bee-1" || displayMode === "bee-2" ? turtle3LegalMovesEnabled : legalMovesEnabled;
 
     legalMovesButton.disabled = lockedOff;
     legalMovesButton.textContent = t(!lockedOff && enabled ? "legalMovesOn" : "legalMovesOff");
@@ -475,7 +475,8 @@ document.addEventListener("DOMContentLoaded", function () {
       "turtle-standard": t("turtleStandardMode"),
       "turtle-2": t("turtle2Mode"),
       "turtle-3": t("turtle3Mode"),
-      "bee-1": t("bee1Mode")
+      "bee-1": t("bee1Mode"),
+      "bee-2": language === "vi" ? "Bee 2 - Thi lên lớp" : "Bee 2 - Test"
     });
     updateSelectOptionText(playerColorSelect, {
       w: t("white"),
@@ -513,7 +514,7 @@ document.addEventListener("DOMContentLoaded", function () {
     } else if (mode === "turtle-3") {
       botDifficultySelect.value = "minimax";
       botDifficultySelect.disabled = true;
-    } else if (mode === "bee-1") {
+    } else if (mode === "bee-1" || mode === "bee-2") {
       botDifficultySelect.value = "minimax";
       botDifficultySelect.disabled = true;
     } else {
@@ -910,9 +911,13 @@ document.addEventListener("DOMContentLoaded", function () {
     return currentMode === "bee-1";
   }
 
+  function isBee2Mode() {
+    return currentMode === "bee-2";
+  }
+
   function getLearningSettings() {
     const legalMovesLockedOff = isTurtle1Mode() || isTurtle2Mode();
-    const showLegalMoves = isTurtle3Mode() || isBee1Mode() ? turtle3LegalMovesEnabled : legalMovesEnabled;
+    const showLegalMoves = isTurtle3Mode() || isBee1Mode() || isBee2Mode() ? turtle3LegalMovesEnabled : legalMovesEnabled;
 
     return {
       allowKingCapture: isTurtle1Mode(),
@@ -926,19 +931,19 @@ document.addEventListener("DOMContentLoaded", function () {
     const learningOver = isTurtle1Mode() && turtleGameOver;
     const turtle2Over = isTurtle2Mode() && turtle2PenaltyGameOver;
     const standardOver = !isTurtle1Mode() && game.game_over();
-    return (getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode()) && game.turn() !== playerColor && !learningOver && !turtle2Over && !standardOver && !pendingPromotion;
+    return (getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode()) && game.turn() !== playerColor && !learningOver && !turtle2Over && !standardOver && !pendingPromotion;
   }
 
   function isBotGameMode() {
-    return getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode();
+    return getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode();
   }
 
   function shouldScheduleBotMove() {
-    return isBotTurn() && (getCurrentMode() === "bot" || isTurtle1NewbornMode() || isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode());
+    return isBotTurn() && (getCurrentMode() === "bot" || isTurtle1NewbornMode() || isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode());
   }
 
   function usesPairedBotUndoMode() {
-    return getCurrentMode() === "bot" || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode();
+    return getCurrentMode() === "bot" || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode();
   }
 
   function scheduleBotMove() {
@@ -1341,6 +1346,41 @@ document.addEventListener("DOMContentLoaded", function () {
     return bestMoves[Math.floor(Math.random() * bestMoves.length)];
   }
 
+  function getBotMove(chessGame, color) {
+    const mode = modeSelect.value;
+
+    if (mode === "bee-2") {
+      if (window.Bee2Bot && typeof window.Bee2Bot.chooseBee2Move === "function") {
+        console.log("Bee2 Context:", window.Bee2Bot.buildBee2Context(chessGame, color));
+        const move = window.Bee2Bot.chooseBee2Move(chessGame, color);
+
+        if (move) {
+          return move;
+        }
+      }
+
+      if (typeof window.chooseBee1BotMove === "function") {
+        return window.chooseBee1BotMove(chessGame, color);
+      }
+
+      return null;
+    }
+
+    if (mode === "bee-1") {
+      return window.chooseBee1BotMove(chessGame, color);
+    }
+
+    let move = chooseRandomMove();
+
+    if (botDifficulty === "greedy") {
+      move = chooseGreedyMove();
+    } else if (botDifficulty === "minimax") {
+      move = getBestMove(chessGame);
+    }
+
+    return move;
+  }
+
   function makeBotMove() {
     if (!isBotTurn()) {
       return;
@@ -1412,35 +1452,29 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    if (isBee1Mode()) {
-      const bee1Move = chooseBee1BotMove();
+    if (isBee1Mode() || isBee2Mode()) {
+      const beeMove = getBotMove(game, game.turn());
 
-      if (!bee1Move) {
+      if (!beeMove) {
         renderBoard();
         return;
       }
 
       makeMove({
-        from: bee1Move.from,
-        to: bee1Move.to,
-        promotion: bee1Move.promotion || "q"
+        from: beeMove.from,
+        to: beeMove.to,
+        promotion: beeMove.promotion || "q"
       }, { skipPremove: true });
       lastBotMove = {
-        piece: bee1Move.piece,
-        from: bee1Move.from,
-        to: bee1Move.to
+        piece: beeMove.piece,
+        from: beeMove.from,
+        to: beeMove.to
       };
       renderBoard();
       return;
     }
 
-    let move = chooseRandomMove();
-
-    if (botDifficulty === "greedy") {
-      move = chooseGreedyMove();
-    } else if (botDifficulty === "minimax") {
-      move = getBestMove(game);
-    }
+    const move = getBotMove(game, game.turn());
 
     if (!move) {
       renderBoard();
@@ -1482,8 +1516,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function applyGameSettings() {
     currentMode = modeSelect.value;
     playerColor = playerColorSelect.value;
-    botDifficulty = isTurtle1NewbornMode() ? "greedy" : isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() ? "turtle-standard" : botDifficultySelect.value;
-    if (isTurtle3Mode() || isBee1Mode()) {
+    botDifficulty = isTurtle1NewbornMode() ? "greedy" : isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode() ? "turtle-standard" : botDifficultySelect.value;
+    if (isTurtle3Mode() || isBee1Mode() || isBee2Mode()) {
       turtle3LegalMovesEnabled = false;
     }
 
@@ -1491,7 +1525,7 @@ document.addEventListener("DOMContentLoaded", function () {
     resetInteractionState();
     clearLearningState();
 
-    if ((currentMode === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode()) && playerColor === "b") {
+    if ((currentMode === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode()) && playerColor === "b") {
       boardFlipped = true;
       updateFlipButtonText();
     } else {
@@ -2851,7 +2885,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (premoveSource) {
-if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode()) {
+if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode()) {
         clearPremove();
         renderBoard();
         return;
@@ -3152,7 +3186,7 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode()) {
       return;
     }
 
-    if ((getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode()) && piece.color !== playerColor) {
+    if ((getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode()) && piece.color !== playerColor) {
       return;
     }
 
@@ -3281,7 +3315,7 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode()) {
   legalMovesButton.addEventListener("click", function () {
     if (isTurtle1Mode() || isTurtle2Mode()) {
       turtle3LegalMovesEnabled = false;
-    } else if (isTurtle3Mode() || isBee1Mode()) {
+    } else if (isTurtle3Mode() || isBee1Mode() || isBee2Mode()) {
       turtle3LegalMovesEnabled = !turtle3LegalMovesEnabled;
     } else {
       legalMovesEnabled = !legalMovesEnabled;

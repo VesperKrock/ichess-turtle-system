@@ -695,39 +695,249 @@
     });
   }
 
+  function isOpeningPhase(game) {
+    return game.history().length < 12;
+  }
+
+  function hasMovedPieceFromSquare(game, color, fromSquare) {
+    return game.history({ verbose: true }).some(function (pastMove) {
+      return pastMove.color === color && pastMove.from === fromSquare;
+    });
+  }
+
+  function affectsCenter(move) {
+    return CENTER.includes(move.to) || EXTENDED_CENTER.includes(move.to);
+  }
+
+  function controlsCenterAfterMove(game, move) {
+    game.move({
+      from: move.from,
+      to: move.to,
+      promotion: move.promotion || "q"
+    });
+    const controlsCenter = CENTER.some(function (square) {
+      return doesPieceAttackSquare(game, move.to, square);
+    });
+    game.undo();
+    return controlsCenter;
+  }
+
+  function justPlayedE4(game, color) {
+    const history = game.history({ verbose: true });
+    const lastMove = history[history.length - 1];
+
+    return Boolean(lastMove && lastMove.color === oppositeColor(color) && lastMove.piece === "p" && lastMove.to === "e4");
+  }
+
+  function hasPlayedOpeningCenterPawn(game, color) {
+    return game.history({ verbose: true }).some(function (pastMove) {
+      return pastMove.color === color && pastMove.piece === "p" && (pastMove.to === "e5" || pastMove.to === "d5");
+    });
+  }
+
+  function isWithinFirstTwoBotMoves(game, color) {
+    return game.history({ verbose: true }).filter(function (pastMove) {
+      return pastMove.color === color;
+    }).length < 2;
+  }
+
+  function isInitialKnightMove(move, color) {
+    return move.piece === "n" && (color === "w" ? move.from[1] === "1" : move.from[1] === "8");
+  }
+
+  function isMovingAttackedPiece(game, move, color) {
+    return getAttackersOfSquare(game, move.from, oppositeColor(color)).length > 0;
+  }
+
+  function defendsAttackedPieceAfterMove(game, move, color) {
+    game.move({
+      from: move.from,
+      to: move.to,
+      promotion: move.promotion || "q"
+    });
+    const defendsAttackedPiece = getPieces(game, color).some(function (item) {
+      return item.square !== move.to
+        && getAttackersOfSquare(game, item.square, oppositeColor(color)).length
+        && doesPieceAttackSquare(game, move.to, item.square);
+    });
+    game.undo();
+    return defendsAttackedPiece;
+  }
+
+  function hasSimpleOpeningReason(game, move, color) {
+    return Boolean(move.captured || isCheckMove(move) || isMovingAttackedPiece(game, move, color) || defendsAttackedPieceAfterMove(game, move, color) || controlsCenterAfterMove(game, move));
+  }
+
+  function isOffRepertoireKnightJump(move) {
+    return move.piece === "n" && ["b4", "b5", "g4", "g5", "a3", "h3", "a5", "h5", "c5"].includes(move.to);
+  }
+
+  function hasPlayedNf6(game) {
+    return hasPiece(game, "f6", "n", "b") || hasPlayedMove(game, "b", "g8", "f6");
+  }
+
+  function isBlackCastled(game) {
+    return hasPiece(game, "g8", "k", "b") || hasPlayedMove(game, "b", "e8", "g8");
+  }
+
+  function isEarlyItalianCentralBreak(game, move, color) {
+    return color === "b"
+      && move.from === "d7"
+      && move.to === "d5"
+      && whiteOpenedWithE4(game)
+      && (hasPiece(game, "e5", "p", "b") || hasPlayedMove(game, "b", "e7", "e5"))
+      && (hasPiece(game, "c6", "n", "b") || hasPlayedMove(game, "b", "b8", "c6"))
+      && (hasPiece(game, "c5", "b", "b") || hasPlayedMove(game, "b", "f8", "c5"))
+      && !hasPlayedNf6(game)
+      && !isBlackCastled(game);
+  }
+
   function evaluateOpeningPrinciples(game, move, color) {
-    if (detectGamePhase(game) !== "opening") {
+    if (!isOpeningPhase(game)) {
       return 0;
     }
 
     let score = 0;
-    const centerResponse = hasCenterPawnResponse(game, color);
 
-    if (move.piece === "p" && OPENING_CENTER_PAWNS.includes(move.to)) {
-      score += opponentHasAdvancedCenter(game, color) ? 900 : 480;
+    if (CENTER.includes(move.to)) {
+      score += 60;
     }
 
-    if (isDevelopingMove(move, color)) {
-      score += centerResponse || !opponentHasAdvancedCenter(game, color) ? 360 : 80;
+    if (move.piece === "n") {
+      if (isInitialKnightMove(move, color)) {
+        score += 35;
+      }
+
+      if (["c3", "f3", "c6", "f6"].includes(move.to)) {
+        score += 50;
+      }
+
+      if (move.to[0] === "a" || move.to[0] === "h") {
+        score -= 320;
+      }
+
+      if (!hasSimpleOpeningReason(game, move, color) && !isInitialKnightMove(move, color)) {
+        score -= 350;
+      }
+
+      if (isOffRepertoireKnightJump(move) && !move.captured && !isCheckMove(move) && !defendsAttackedPieceAfterMove(game, move, color)) {
+        score -= 380;
+      }
+
+      if (move.to === "f6" && justPlayedE4(game, color) && !hasPlayedOpeningCenterPawn(game, color) && isWithinFirstTwoBotMoves(game, color)) {
+        score -= 420;
+      }
+    }
+
+    if (move.piece === "b" && ["c4", "b5", "f4", "c5"].includes(move.to)) {
+      score += 45;
     }
 
     if (isCastlingMove(move)) {
-      score += 760;
+      score += 80;
     }
 
-    if (move.piece === "q") {
-      score -= 620;
+    if (move.piece === "p" && (move.from[0] === "e" || move.from[0] === "d") && Math.abs(Number(move.to[1]) - Number(move.from[1])) === 2) {
+      score += 50;
     }
 
-    if (move.piece === "r" && !hasCastled(game, color)) {
-      score -= 520;
+    if (hasMovedPieceFromSquare(game, color, move.from)) {
+      score -= hasSimpleOpeningReason(game, move, color) ? 0 : 300;
     }
 
-    if (isEarlyKnightOccupation(game, move, color) || isKickableByPawnAfterMove(game, move, color)) {
-      score -= 1400;
+    if (move.piece === "q" && game.history().length < 8) {
+      score -= 380;
+    }
+
+    if (isEarlyItalianCentralBreak(game, move, color) && !hasSimpleOpeningReason(game, move, color)) {
+      score -= 380;
+    }
+
+    if (!affectsCenter(move)) {
+      score -= 50;
     }
 
     return score;
+  }
+
+  function findMove(candidateMoves, from, to) {
+    return candidateMoves.find(function (move) {
+      return move.from === from && move.to === to;
+    }) || null;
+  }
+
+  function hasPiece(game, square, type, color) {
+    const piece = game.get(square);
+
+    return Boolean(piece && piece.type === type && piece.color === color);
+  }
+
+  function hasPlayedMove(game, color, from, to) {
+    return game.history({ verbose: true }).some(function (move) {
+      return move.color === color && move.from === from && move.to === to;
+    });
+  }
+
+  function whiteOpenedWithE4(game) {
+    const firstMove = game.history({ verbose: true })[0];
+
+    return Boolean(firstMove && firstMove.color === "w" && firstMove.piece === "p" && firstMove.from === "e2" && firstMove.to === "e4");
+  }
+
+  function chooseFirstAvailable(candidateMoves, preferredMoves) {
+    for (let index = 0; index < preferredMoves.length; index++) {
+      const move = findMove(candidateMoves, preferredMoves[index].from, preferredMoves[index].to);
+
+      if (move) {
+        return move;
+      }
+    }
+
+    return null;
+  }
+
+  function chooseStrictIchessOpeningMove(game, color, candidateMoves) {
+    if (!isOpeningPhase(game) || !candidateMoves.length) {
+      return null;
+    }
+
+    if (color === "w") {
+      return chooseFirstAvailable(candidateMoves, [
+        { from: "e2", to: "e4" },
+        { from: "g1", to: "f3" },
+        { from: "f1", to: "c4" },
+        { from: "b1", to: "c3" },
+        { from: "e1", to: "g1" },
+        { from: "d2", to: "d3" }
+      ]);
+    }
+
+    if (color !== "b" || !whiteOpenedWithE4(game)) {
+      return null;
+    }
+
+    const blackHasE5 = hasPiece(game, "e5", "p", "b") || hasPlayedMove(game, "b", "e7", "e5");
+    const blackHasNc6 = hasPiece(game, "c6", "n", "b") || hasPlayedMove(game, "b", "b8", "c6");
+    const blackHasBc5 = hasPiece(game, "c5", "b", "b") || hasPlayedMove(game, "b", "f8", "c5");
+
+    if (!blackHasE5) {
+      return findMove(candidateMoves, "e7", "e5");
+    }
+
+    if (!blackHasNc6) {
+      return findMove(candidateMoves, "b8", "c6");
+    }
+
+    if (!blackHasBc5) {
+      return findMove(candidateMoves, "f8", "c5");
+    }
+
+    return chooseFirstAvailable(candidateMoves, [
+      { from: "g8", to: "f6" },
+      { from: "d7", to: "d6" },
+      { from: "e8", to: "g8" },
+      { from: "c8", to: "e6" }
+    ]);
   }
 
   function detectImmediateThreat(game, color) {
@@ -955,7 +1165,10 @@
       score += getStaticExchangeScore(game, move, color);
     }
 
-    score += evaluateOpeningPrinciples(game, move, color);
+    if (isOpeningPhase(game)) {
+      const openingScore = evaluateOpeningPrinciples(game, move, color);
+      score += openingScore > 0 ? openingScore * 0.6 : openingScore;
+    }
 
     const intent = classifyMoveIntent(game, move, color);
     if (intent.isUseful) {
@@ -1125,6 +1338,18 @@
         return item;
       });
       return finalizeRootMove(game, enrichedMoves);
+    }
+
+    const safeOpeningMoves = enrichedMoves.filter(function (item) {
+      return !item.gate.rejected;
+    }).map(function (item) {
+      return item.move;
+    });
+    const strictOpeningMove = !emergency.hasEmergency ? chooseStrictIchessOpeningMove(game, color, safeOpeningMoves) : null;
+
+    if (strictOpeningMove) {
+      debugCandidates("strict-opening", game, enrichedMoves, { move: strictOpeningMove, gate: { rejected: false } });
+      return strictOpeningMove;
     }
 
     const safeCaptures = enrichedMoves.filter(function (item) {
