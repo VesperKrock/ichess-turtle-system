@@ -38,6 +38,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const materialAdvantageValue = document.getElementById("materialAdvantageValue");
   const promotionModal = document.getElementById("promotionModal");
   const promotionPicker = document.getElementById("promotionPicker");
+  const gameOverOverlay = document.getElementById("gameOverOverlay");
+  const gameOverTitle = document.getElementById("gameOverTitle");
+  const gameOverReason = document.getElementById("gameOverReason");
+  const newGameOverlayButton = document.getElementById("newGameOverlayButton");
+  const reviewGameButton = document.getElementById("reviewGameButton");
+  const replayBanner = document.getElementById("replayBanner");
+  const replayLabel = document.getElementById("replayLabel");
+  const returnToCurrentButton = document.getElementById("returnToCurrentButton");
   const rankCoordinates = document.getElementById("rankCoordinates");
   const fileCoordinates = document.getElementById("fileCoordinates");
   const DEBUG_CLICK_TO_MOVE = false;
@@ -94,6 +102,9 @@ document.addEventListener("DOMContentLoaded", function () {
   let turtle2WarningKingSquare = null;
   let turtle2PenaltyKingSquare = null;
   let turtle2WarningFlashTimer = null;
+  let isReplayMode = false;
+  let replayPly = null;
+  let replayGame = null;
 
   const circles = new Set();
   const arrows = new Set();
@@ -237,6 +248,19 @@ document.addEventListener("DOMContentLoaded", function () {
       checkmate: "Chiếu bí",
       check: "Chiếu",
       draw: "Hòa",
+      whiteWins: "Trắng thắng",
+      blackWins: "Đen thắng",
+      stalemate: "Hết nước hợp lệ",
+      threefold: "Lặp thế ba lần",
+      insufficient: "Không đủ lực chiếu bí",
+      newGame: "Chơi ván mới",
+      reviewGame: "Xem lại ván đấu",
+      backToCurrent: "Trở về hiện tại",
+      reviewingMove: "Đang xem lại: nước",
+      reviewingPrefix: "Đang xem lại:",
+      moveLabel: "nước",
+      whiteSide: "Trắng",
+      blackSide: "Đen",
       whiteToMove: "Lượt Trắng",
       blackToMove: "Lượt Đen",
       reset: "Chơi lại",
@@ -296,6 +320,19 @@ document.addEventListener("DOMContentLoaded", function () {
       checkmate: "Checkmate",
       check: "Check",
       draw: "Draw",
+      whiteWins: "White wins",
+      blackWins: "Black wins",
+      stalemate: "Stalemate",
+      threefold: "Threefold repetition",
+      insufficient: "Insufficient material",
+      newGame: "New game",
+      reviewGame: "Review game",
+      backToCurrent: "Back to current",
+      reviewingMove: "Reviewing move",
+      reviewingPrefix: "Reviewing:",
+      moveLabel: "move",
+      whiteSide: "White",
+      blackSide: "Black",
       whiteToMove: "White to move",
       blackToMove: "Black to move",
       reset: "Reset",
@@ -459,6 +496,15 @@ document.addEventListener("DOMContentLoaded", function () {
     undoButton.textContent = t("undo");
     redoButton.textContent = t("redo");
     resetButton.textContent = t("reset");
+    if (newGameOverlayButton) {
+      newGameOverlayButton.textContent = t("newGame");
+    }
+    if (reviewGameButton) {
+      reviewGameButton.textContent = t("reviewGame");
+    }
+    if (returnToCurrentButton) {
+      returnToCurrentButton.textContent = t("backToCurrent");
+    }
     applySettingsButton.textContent = t("applySettings");
     soundButton.textContent = soundEnabled ? t("soundOn") : t("soundOff");
     themeButton.textContent = theme === "dark" ? t("themeDark") : t("themeLight");
@@ -491,6 +537,14 @@ document.addEventListener("DOMContentLoaded", function () {
     updateStatus();
     updateModeControls();
     updateMaterialAdvantage();
+    updateReplayBanner();
+    if (gameOverOverlay && !gameOverOverlay.classList.contains("hidden")) {
+      const info = getGameOverInfo(game);
+
+      if (info.isGameOver) {
+        showGameOverOverlay(info);
+      }
+    }
     renderMoveHistory();
   }
 
@@ -838,13 +892,13 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    if (game.in_checkmate()) {
+    if (isCheckmatePosition(game)) {
       status.textContent = t("checkmate");
       status.classList.add("danger");
-    } else if (game.in_draw()) {
+    } else if (isDrawPosition(game)) {
       status.textContent = t("draw");
       status.classList.add("neutral");
-    } else if (game.in_check() && !isTurtle2Mode()) {
+    } else if ((typeof game.in_check === "function" && game.in_check() || typeof game.isCheck === "function" && game.isCheck()) && !isTurtle2Mode()) {
       status.textContent = t("check");
       status.classList.add("danger");
     } else if (game.turn() === "w") {
@@ -930,7 +984,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function isBotTurn() {
     const learningOver = isTurtle1Mode() && turtleGameOver;
     const turtle2Over = isTurtle2Mode() && turtle2PenaltyGameOver;
-    const standardOver = !isTurtle1Mode() && game.game_over();
+    const standardOver = !isTurtle1Mode() && getGameOverInfo(game).isGameOver;
     return (getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode()) && game.turn() !== playerColor && !learningOver && !turtle2Over && !standardOver && !pendingPromotion;
   }
 
@@ -938,8 +992,103 @@ document.addEventListener("DOMContentLoaded", function () {
     return getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode();
   }
 
+  function isCheckmatePosition(chessGame) {
+    if (typeof chessGame.isCheckmate === "function") {
+      return chessGame.isCheckmate();
+    }
+
+    return typeof chessGame.in_checkmate === "function" && chessGame.in_checkmate();
+  }
+
+  function isStalematePosition(chessGame) {
+    if (typeof chessGame.isStalemate === "function") {
+      return chessGame.isStalemate();
+    }
+
+    return typeof chessGame.in_stalemate === "function" && chessGame.in_stalemate();
+  }
+
+  function isDrawPosition(chessGame) {
+    if (typeof chessGame.isDraw === "function") {
+      return chessGame.isDraw();
+    }
+
+    return typeof chessGame.in_draw === "function" && chessGame.in_draw();
+  }
+
+  function isThreefoldPosition(chessGame) {
+    if (typeof chessGame.isThreefoldRepetition === "function") {
+      return chessGame.isThreefoldRepetition();
+    }
+
+    return typeof chessGame.in_threefold_repetition === "function" && chessGame.in_threefold_repetition();
+  }
+
+  function isInsufficientMaterialPosition(chessGame) {
+    if (typeof chessGame.isInsufficientMaterial === "function") {
+      return chessGame.isInsufficientMaterial();
+    }
+
+    return typeof chessGame.insufficient_material === "function" && chessGame.insufficient_material();
+  }
+
+  function getGameOverInfo(chessGame) {
+    if (isCheckmatePosition(chessGame)) {
+      const winner = chessGame.turn() === "w" ? "black" : "white";
+      return {
+        isGameOver: true,
+        winner: winner,
+        titleKey: winner === "white" ? "whiteWins" : "blackWins",
+        reasonKey: "checkmate"
+      };
+    }
+
+    if (isStalematePosition(chessGame)) {
+      return {
+        isGameOver: true,
+        winner: null,
+        titleKey: "draw",
+        reasonKey: "stalemate"
+      };
+    }
+
+    if (isThreefoldPosition(chessGame)) {
+      return {
+        isGameOver: true,
+        winner: null,
+        titleKey: "draw",
+        reasonKey: "threefold"
+      };
+    }
+
+    if (isInsufficientMaterialPosition(chessGame)) {
+      return {
+        isGameOver: true,
+        winner: null,
+        titleKey: "draw",
+        reasonKey: "insufficient"
+      };
+    }
+
+    if (isDrawPosition(chessGame)) {
+      return {
+        isGameOver: true,
+        winner: null,
+        titleKey: "draw",
+        reasonKey: "draw"
+      };
+    }
+
+    return {
+      isGameOver: false,
+      winner: null,
+      titleKey: "",
+      reasonKey: ""
+    };
+  }
+
   function shouldScheduleBotMove() {
-    return isBotTurn() && (getCurrentMode() === "bot" || isTurtle1NewbornMode() || isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode());
+    return !isReplayMode && !getGameOverInfo(game).isGameOver && isBotTurn() && (getCurrentMode() === "bot" || isTurtle1NewbornMode() || isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode());
   }
 
   function usesPairedBotUndoMode() {
@@ -960,6 +1109,138 @@ document.addEventListener("DOMContentLoaded", function () {
       botTimer = null;
       makeBotMove();
     }, 300);
+  }
+
+  function hideGameOverOverlay() {
+    if (gameOverOverlay) {
+      gameOverOverlay.classList.add("hidden");
+    }
+  }
+
+  function showGameOverOverlay(info) {
+    if (!gameOverOverlay || !gameOverTitle || !gameOverReason) {
+      return;
+    }
+
+    gameOverTitle.textContent = t(info.titleKey);
+    gameOverReason.textContent = t(info.reasonKey);
+    gameOverOverlay.classList.remove("hidden");
+  }
+
+  function checkAndShowGameOver() {
+    if (isReplayMode || isTurtle1Mode() || isTurtle2Mode()) {
+      return false;
+    }
+
+    const info = getGameOverInfo(game);
+
+    if (!info.isGameOver) {
+      hideGameOverOverlay();
+      return false;
+    }
+
+    if (botTimer) {
+      clearTimeout(botTimer);
+      botTimer = null;
+    }
+
+    clearSelection();
+    clearPremove();
+    showGameOverOverlay(info);
+    return true;
+  }
+
+  function getReplaySourceHistory() {
+    return isTurtle1Mode() ? turtleMoveHistory.slice() : game.history({ verbose: true });
+  }
+
+  function buildReplayGameToPly(ply) {
+    const nextReplayGame = new Chess();
+    const sourceHistory = getReplaySourceHistory();
+    const safePly = Math.max(0, Math.min(ply, sourceHistory.length));
+
+    for (let index = 0; index < safePly; index++) {
+      const move = sourceHistory[index];
+
+      const appliedMove = nextReplayGame.move({
+        from: move.from,
+        to: move.to,
+        promotion: move.promotion || "q"
+      });
+
+      if (!appliedMove) {
+        break;
+      }
+    }
+
+    return nextReplayGame;
+  }
+
+  function getDisplayGame() {
+    return isReplayMode && replayGame ? replayGame : game;
+  }
+
+  function getReplayMoveLabel(ply) {
+    const safePly = Math.max(0, Number(ply) || 0);
+
+    if (!safePly) {
+      return t("reviewingPrefix") + " " + t("moveLabel") + " 0";
+    }
+
+    const moveNumber = Math.ceil(safePly / 2);
+    const side = safePly % 2 === 1 ? t("whiteSide") : t("blackSide");
+
+    return t("reviewingPrefix") + " " + t("moveLabel") + " " + moveNumber + " " + side;
+  }
+
+  function updateReplayBanner() {
+    if (!replayBanner || !replayLabel) {
+      return;
+    }
+
+    if (!isReplayMode) {
+      replayBanner.classList.add("hidden");
+      return;
+    }
+
+    replayLabel.textContent = getReplayMoveLabel(replayPly);
+    replayBanner.classList.remove("hidden");
+  }
+
+  function exitReplayMode(skipBotSchedule) {
+    isReplayMode = false;
+    replayPly = null;
+    replayGame = null;
+    updateReplayBanner();
+    renderBoard();
+    if (!skipBotSchedule) {
+      scheduleBotMove();
+    }
+  }
+
+  function enterReplayMode(ply) {
+    const historyLength = getReplaySourceHistory().length;
+
+    if (ply >= historyLength) {
+      exitReplayMode(true);
+      return;
+    }
+
+    isReplayMode = true;
+    replayPly = Math.max(0, Math.min(ply, historyLength));
+    replayGame = buildReplayGameToPly(replayPly);
+
+    if (botTimer) {
+      clearTimeout(botTimer);
+      botTimer = null;
+    }
+
+    clearSelection();
+    clearPremove();
+    hidePromotionPicker();
+    hideGameOverOverlay();
+    updateReplayBanner();
+    renderBoard();
   }
 
   function chooseRandomMove() {
@@ -1382,6 +1663,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function makeBotMove() {
+    if (isReplayMode || getGameOverInfo(game).isGameOver) {
+      return;
+    }
+
     if (!isBotTurn()) {
       return;
     }
@@ -1522,6 +1807,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     game.reset();
+    exitReplayMode(true);
+    hideGameOverOverlay();
     resetInteractionState();
     clearLearningState();
 
@@ -1572,13 +1859,15 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function findCheckedKingSquare() {
-    if (isTurtle1Mode() || isTurtle2Mode() || !game.in_check()) {
+  function findCheckedKingSquare(chessGame) {
+    const boardGame = chessGame || game;
+
+    if (isTurtle1Mode() || isTurtle2Mode() || !isCheckmatePosition(boardGame) && !(typeof boardGame.in_check === "function" && boardGame.in_check()) && !(typeof boardGame.isCheck === "function" && boardGame.isCheck())) {
       return null;
     }
 
-    const checkedColor = game.turn();
-    const rows = game.board();
+    const checkedColor = boardGame.turn();
+    const rows = boardGame.board();
 
     for (let row = 0; row < rows.length; row++) {
       for (let col = 0; col < rows[row].length; col++) {
@@ -2333,6 +2622,11 @@ document.addEventListener("DOMContentLoaded", function () {
     if (DEBUG_CLICK_TO_MOVE) {
       console.log("[ClickMove] makeMove attempt", moveData.from, moveData.to, moveData);
     }
+
+    if (isReplayMode) {
+      return false;
+    }
+
     if (isTurtle1Mode()) {
       return makeTurtleMove(moveData, options);
     }
@@ -2390,6 +2684,10 @@ document.addEventListener("DOMContentLoaded", function () {
       tryExecutePremove();
     }
 
+    if (checkAndShowGameOver()) {
+      return true;
+    }
+
     if (!settings.skipBotSchedule) {
       scheduleBotMove();
     }
@@ -2411,6 +2709,11 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function undoMove() {
+    if (isReplayMode) {
+      exitReplayMode(true);
+    }
+
+    hideGameOverOverlay();
     hidePromotionPicker();
 
     if (isTurtle1Mode()) {
@@ -2527,6 +2830,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function redoMove() {
+    if (isReplayMode) {
+      return;
+    }
+
     hidePromotionPicker();
 
     if (isTurtle1Mode()) {
@@ -2732,8 +3039,34 @@ document.addEventListener("DOMContentLoaded", function () {
       row.className = "history-row";
       moveNumber.className = "move-number";
       moveNumber.textContent = Math.floor(index / 2) + 1 + ".";
+      whiteMove.className = "move-history-item";
+      whiteMove.dataset.ply = String(index + 1);
       whiteMove.textContent = formatMoveSAN(history[index].san, notationLocale);
-      blackMove.textContent = history[index + 1] ? formatMoveSAN(history[index + 1].san, notationLocale) : "";
+
+      if (replayPly === index + 1) {
+        whiteMove.classList.add("active");
+      }
+
+      whiteMove.addEventListener("click", function () {
+        enterReplayMode(index + 1);
+      });
+
+      blackMove.className = "move-history-item";
+
+      if (history[index + 1]) {
+        blackMove.dataset.ply = String(index + 2);
+        blackMove.textContent = formatMoveSAN(history[index + 1].san, notationLocale);
+
+        if (replayPly === index + 2) {
+          blackMove.classList.add("active");
+        }
+
+        blackMove.addEventListener("click", function () {
+          enterReplayMode(index + 2);
+        });
+      } else {
+        blackMove.textContent = "";
+      }
 
       row.appendChild(moveNumber);
       row.appendChild(whiteMove);
@@ -2741,7 +3074,7 @@ document.addEventListener("DOMContentLoaded", function () {
       moveHistory.appendChild(row);
     }
 
-    if (moveHistoryScroll) {
+    if (moveHistoryScroll && !isReplayMode) {
       moveHistoryScroll.scrollTop = moveHistoryScroll.scrollHeight;
     }
   }
@@ -2798,16 +3131,18 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function renderBoard() {
+    const displayGame = getDisplayGame();
+
     board.innerHTML = "";
     renderCoordinates();
 
-    const checkedKingSquare = findCheckedKingSquare();
+    const checkedKingSquare = findCheckedKingSquare(displayGame);
 
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
         const square = document.createElement("div");
         const name = displaySquare(row, col);
-        const piece = game.get(name);
+        const piece = displayGame.get(name);
 
         square.className = "square " + squareColor(name);
         square.dataset.square = name;
@@ -2821,15 +3156,15 @@ document.addEventListener("DOMContentLoaded", function () {
           square.classList.add("selected");
         }
 
-        if (getLearningSettings().showLegalMoves && isLegalTarget(name)) {
+        if (!isReplayMode && getLearningSettings().showLegalMoves && isLegalTarget(name)) {
           square.classList.add(piece ? "legal-capture" : "legal-move");
         }
 
-        if (lastMove && (name === lastMove.from || name === lastMove.to)) {
+        if (!isReplayMode && lastMove && (name === lastMove.from || name === lastMove.to)) {
           square.classList.add("last-move");
         }
 
-        if (isPremoveSquare(name)) {
+        if (!isReplayMode && isPremoveSquare(name)) {
           square.classList.add("premove");
         }
 
@@ -2866,7 +3201,13 @@ document.addEventListener("DOMContentLoaded", function () {
     updateStatus();
     updateMaterialAdvantage();
     renderMoveHistory();
-    drawAnnotations();
+    updateReplayBanner();
+
+    if (!isReplayMode) {
+      checkAndShowGameOver();
+      drawAnnotations();
+    }
+
     console.log("board rendered");
   }
 
@@ -2878,6 +3219,11 @@ document.addEventListener("DOMContentLoaded", function () {
         mode: modeSelect ? modeSelect.value : null
       });
     }
+
+    if (isReplayMode) {
+      return;
+    }
+
     const piece = game.get(square);
 
     if (pendingPromotion || isBotTurn() || turtleGameOver || turtle2PenaltyGameOver) {
@@ -3081,6 +3427,15 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
   }
 
   function handleDragAndDrop(event) {
+    if (isReplayMode) {
+      draggedPiece = null;
+      dragFromSquare = null;
+      pointerStart = null;
+      isDragging = false;
+      removeDragGhost();
+      return;
+    }
+
     if (!dragFromSquare) {
       return;
     }
@@ -3138,6 +3493,10 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
   });
 
   board.addEventListener("pointerdown", function (event) {
+    if (isReplayMode) {
+      return;
+    }
+
     const square = squareFromEvent(event);
     if (DEBUG_CLICK_TO_MOVE) {
       console.log("[PointerDown]", {
@@ -3201,6 +3560,10 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
   });
 
   board.addEventListener("pointermove", function (event) {
+    if (isReplayMode) {
+      return;
+    }
+
     if (!dragFromSquare || !pointerStart) {
       return;
     }
@@ -3327,11 +3690,37 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
 
   resetButton.addEventListener("click", function () {
     game.reset();
+    exitReplayMode(true);
+    hideGameOverOverlay();
     resetInteractionState();
     clearLearningState();
     renderBoard();
     scheduleBotMove();
   });
+
+  if (newGameOverlayButton) {
+    newGameOverlayButton.addEventListener("click", function () {
+      game.reset();
+      exitReplayMode(true);
+      hideGameOverOverlay();
+      resetInteractionState();
+      clearLearningState();
+      renderBoard();
+      scheduleBotMove();
+    });
+  }
+
+  if (reviewGameButton) {
+    reviewGameButton.addEventListener("click", function () {
+      enterReplayMode(0);
+    });
+  }
+
+  if (returnToCurrentButton) {
+    returnToCurrentButton.addEventListener("click", function () {
+      exitReplayMode();
+    });
+  }
 
   createBoardThemeControls();
   applyTheme();
