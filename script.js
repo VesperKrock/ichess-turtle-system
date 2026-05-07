@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const botLabel = document.getElementById("botLabel");
   const botDifficultyGroup = botLabel ? botLabel.closest("label") : null;
   const movesTitle = document.getElementById("movesTitle");
+  const copyHistoryButton = document.getElementById("copyHistoryButton");
   const moveHistory = document.getElementById("moveHistory");
   const moveHistoryScroll = document.getElementById("moveHistoryScroll");
   const materialAdvantageLabel = document.getElementById("materialAdvantageLabel");
@@ -83,6 +84,15 @@ document.addEventListener("DOMContentLoaded", function () {
   let playerColor = "w";
   let botDifficulty = "random";
   let botTimer = null;
+  let isBotThinking = false;
+  let botThinkToken = 0;
+  let bee3Worker = null;
+  let bee3WorkerAvailable = typeof Worker !== "undefined";
+  let bee3WorkerFallbackLogged = false;
+  let bee3RequestId = 0;
+  let pendingBee3RequestId = null;
+  let pendingBee3Fen = null;
+  let pendingBee3BotColor = null;
   let language = loadLanguage();
   let theme = loadTheme();
   let boardTheme = "classic";
@@ -123,6 +133,15 @@ document.addEventListener("DOMContentLoaded", function () {
     bq: "♛",
     bk: "♚"
   };
+
+  Object.assign(pieces, {
+    wp: "\u265f",
+    wr: "\u265c",
+    wn: "\u265e",
+    wb: "\u265d",
+    wq: "\u265b",
+    wk: "\u265a"
+  });
 
   const promotionOptions = [
     { piece: "q", labelKey: "queen" },
@@ -169,74 +188,94 @@ document.addEventListener("DOMContentLoaded", function () {
   const BOARD_THEME_STORAGE_KEY = "ichessBoardTheme";
   const BOARD_THEMES = {
     classic: {
-      boardLight: "#f0d9b5",
-      boardDark: "#b58863",
-      pieceWhite: "#fff7df",
-      pieceBlack: "#1f2937",
-      pieceOutline: "rgba(30, 18, 10, 0.58)",
-      whitePieceShadow: "0 1px 1px rgba(30, 18, 10, 0.68), 0 0 2px rgba(30, 18, 10, 0.4)",
-      blackPieceShadow: "0 1px 1px rgba(255, 249, 232, 0.56), 0 0 2px rgba(255, 249, 232, 0.34)",
-      selectedSquare: "#2563eb",
-      legalMove: "rgba(37, 99, 235, 0.42)",
-      legalCapture: "rgba(185, 28, 28, 0.65)",
-      lastMove: "rgba(234, 179, 8, 0.65)",
-      annotationColor: "rgba(249, 115, 22, 0.68)"
+      boardLight: "#eed7ad",
+      boardDark: "#b88761",
+      pieceWhite: "#f0ece2",
+      pieceBlack: "#172033",
+      pieceOutline: "rgba(0, 0, 0, 0.82)",
+      whitePieceStroke: "rgba(0, 0, 0, 0.9)",
+      blackPieceStroke: "rgba(255, 255, 255, 0.12)",
+      whitePieceShadow: "0 1px 0 rgba(0, 0, 0, 0.62), 0 1px 1px rgba(0, 0, 0, 0.35)",
+      blackPieceShadow: "0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 1px rgba(0, 0, 0, 0.28)",
+      selectedSquare: "#d89a1e",
+      legalMove: "rgba(217, 138, 38, 0.64)",
+      legalCapture: "rgba(185, 28, 28, 0.78)",
+      lastMove: "rgba(216, 154, 30, 0.72)",
+      annotationColor: "rgba(87, 200, 77, 0.84)",
+      analysisArrow: "#57c84d",
+      analysisCircle: "#57c84d"
     },
     ocean: {
-      boardLight: "#dbeafe",
-      boardDark: "#2563eb",
-      pieceWhite: "#e0f7ff",
-      pieceBlack: "#082f49",
-      pieceOutline: "rgba(7, 29, 58, 0.58)",
-      whitePieceShadow: "0 1px 1px rgba(7, 29, 58, 0.7), 0 0 2px rgba(7, 29, 58, 0.42)",
-      blackPieceShadow: "0 1px 1px rgba(224, 242, 254, 0.6), 0 0 2px rgba(224, 242, 254, 0.36)",
-      selectedSquare: "#0f766e",
-      legalMove: "rgba(14, 165, 233, 0.42)",
-      legalCapture: "rgba(190, 24, 93, 0.62)",
-      lastMove: "rgba(14, 165, 233, 0.5)",
-      annotationColor: "rgba(8, 145, 178, 0.72)"
+      boardLight: "#cfe2f3",
+      boardDark: "#456fd0",
+      pieceWhite: "#eef2ec",
+      pieceBlack: "#18283e",
+      pieceOutline: "rgba(0, 0, 0, 0.8)",
+      whitePieceStroke: "rgba(0, 0, 0, 0.9)",
+      blackPieceStroke: "rgba(255, 255, 255, 0.14)",
+      whitePieceShadow: "0 1px 0 rgba(0, 0, 0, 0.60), 0 1px 1px rgba(0, 0, 0, 0.34)",
+      blackPieceShadow: "0 1px 0 rgba(255, 255, 255, 0.09), 0 1px 1px rgba(0, 0, 0, 0.24)",
+      selectedSquare: "#25b7c9",
+      legalMove: "rgba(39, 191, 209, 0.66)",
+      legalCapture: "rgba(190, 18, 60, 0.78)",
+      lastMove: "rgba(37, 183, 201, 0.68)",
+      annotationColor: "rgba(255, 90, 95, 0.84)",
+      analysisArrow: "#ff5a5f",
+      analysisCircle: "#ff5a5f"
     },
     forest: {
-      boardLight: "#d9f99d",
-      boardDark: "#4d7c0f",
-      pieceWhite: "#f7fee7",
-      pieceBlack: "#14532d",
-      pieceOutline: "rgba(20, 83, 45, 0.6)",
-      whitePieceShadow: "0 1px 1px rgba(20, 83, 45, 0.7), 0 0 2px rgba(20, 83, 45, 0.42)",
-      blackPieceShadow: "0 1px 1px rgba(247, 254, 231, 0.6), 0 0 2px rgba(247, 254, 231, 0.36)",
-      selectedSquare: "#15803d",
-      legalMove: "rgba(34, 197, 94, 0.4)",
-      legalCapture: "rgba(185, 28, 28, 0.62)",
-      lastMove: "rgba(132, 204, 22, 0.58)",
-      annotationColor: "rgba(22, 163, 74, 0.72)"
+      boardLight: "#d8f0ab",
+      boardDark: "#527d27",
+      pieceWhite: "#f0f1e6",
+      pieceBlack: "#1b2d3d",
+      pieceOutline: "rgba(0, 0, 0, 0.82)",
+      whitePieceStroke: "rgba(0, 0, 0, 0.9)",
+      blackPieceStroke: "rgba(255, 255, 255, 0.16)",
+      whitePieceShadow: "0 1px 0 rgba(0, 0, 0, 0.62), 0 1px 1px rgba(0, 0, 0, 0.35)",
+      blackPieceShadow: "0 1px 0 rgba(255, 255, 255, 0.10), 0 1px 1px rgba(0, 0, 0, 0.24)",
+      selectedSquare: "#33aa55",
+      legalMove: "rgba(49, 182, 91, 0.66)",
+      legalCapture: "rgba(185, 28, 28, 0.78)",
+      lastMove: "rgba(51, 170, 85, 0.68)",
+      annotationColor: "rgba(245, 166, 35, 0.86)",
+      analysisArrow: "#f5a623",
+      analysisCircle: "#f5a623"
     },
     rose: {
-      boardLight: "#fce7f3",
-      boardDark: "#be6b7d",
-      pieceWhite: "#ffe4ef",
-      pieceBlack: "#831843",
-      pieceOutline: "rgba(131, 24, 67, 0.58)",
-      whitePieceShadow: "0 1px 1px rgba(131, 24, 67, 0.68), 0 0 2px rgba(131, 24, 67, 0.38)",
-      blackPieceShadow: "0 1px 1px rgba(255, 228, 239, 0.58), 0 0 2px rgba(255, 228, 239, 0.34)",
-      selectedSquare: "#db2777",
-      legalMove: "rgba(236, 72, 153, 0.38)",
-      legalCapture: "rgba(190, 24, 93, 0.62)",
-      lastMove: "rgba(244, 114, 182, 0.52)",
-      annotationColor: "rgba(225, 29, 72, 0.68)"
+      boardLight: "#efd1dc",
+      boardDark: "#a84a65",
+      pieceWhite: "#e6d6dc",
+      pieceBlack: "#1d2333",
+      pieceOutline: "rgba(0, 0, 0, 0.78)",
+      whitePieceStroke: "rgba(0, 0, 0, 0.88)",
+      blackPieceStroke: "rgba(255, 255, 255, 0.12)",
+      whitePieceShadow: "0 1px 0 rgba(0, 0, 0, 0.55), 0 1px 1px rgba(0, 0, 0, 0.28)",
+      blackPieceShadow: "0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 1px rgba(0, 0, 0, 0.24)",
+      selectedSquare: "#d94c75",
+      legalMove: "rgba(219, 82, 122, 0.64)",
+      legalCapture: "rgba(159, 18, 57, 0.8)",
+      lastMove: "rgba(217, 76, 117, 0.66)",
+      annotationColor: "rgba(34, 199, 232, 0.86)",
+      analysisArrow: "#22c7e8",
+      analysisCircle: "#22c7e8"
     },
     darkWood: {
-      boardLight: "#d6b48a",
-      boardDark: "#6f4e37",
-      pieceWhite: "#fef3c7",
-      pieceBlack: "#3f1f0f",
-      pieceOutline: "rgba(63, 31, 15, 0.6)",
-      whitePieceShadow: "0 1px 1px rgba(63, 31, 15, 0.72), 0 0 2px rgba(63, 31, 15, 0.42)",
-      blackPieceShadow: "0 1px 1px rgba(254, 243, 199, 0.6), 0 0 2px rgba(254, 243, 199, 0.34)",
-      selectedSquare: "#a16207",
-      legalMove: "rgba(217, 119, 6, 0.34)",
-      legalCapture: "rgba(153, 27, 27, 0.62)",
-      lastMove: "rgba(202, 138, 4, 0.56)",
-      annotationColor: "rgba(180, 83, 9, 0.72)"
+      boardLight: "#d5b07a",
+      boardDark: "#6b452a",
+      pieceWhite: "#e7dcc9",
+      pieceBlack: "#161616",
+      pieceOutline: "rgba(0, 0, 0, 0.88)",
+      whitePieceStroke: "rgba(0, 0, 0, 0.9)",
+      blackPieceStroke: "rgba(255, 255, 255, 0.10)",
+      whitePieceShadow: "0 1px 0 rgba(0, 0, 0, 0.24), 0 0 1px rgba(0, 0, 0, 0.22)",
+      blackPieceShadow: "0 1px 0 rgba(255, 255, 255, 0.10), 0 1px 1px rgba(0, 0, 0, 0.18)",
+      selectedSquare: "#d08619",
+      legalMove: "rgba(213, 138, 27, 0.66)",
+      legalCapture: "rgba(153, 27, 27, 0.8)",
+      lastMove: "rgba(208, 134, 25, 0.68)",
+      annotationColor: "rgba(76, 201, 240, 0.88)",
+      analysisArrow: "#4CC9F0",
+      analysisCircle: "#4CC9F0"
     }
   };
   boardTheme = loadBoardTheme();
@@ -293,6 +332,11 @@ document.addEventListener("DOMContentLoaded", function () {
       white: "Trắng",
       black: "Đen",
       bee1Mode: "Bee 1 - Thi lên lớp",
+      bee3Mode: "Bee 3 - Boss cuối",
+      bee3Thinking: "Bee 3 đang suy nghĩ...",
+      copyMoves: "Copy biên bản",
+      copyMovesSuccess: "Đã copy biên bản",
+      copyMovesFail: "Không copy được biên bản",
       random: "Random",
       greedy: "Greedy",
       minimax: "Minimax",
@@ -365,6 +409,11 @@ document.addEventListener("DOMContentLoaded", function () {
       white: "White",
       black: "Black",
       bee1Mode: "Bee 1 - Test",
+      bee3Mode: "Bee 3 - Final Boss",
+      bee3Thinking: "Bee 3 is thinking...",
+      copyMoves: "Copy moves",
+      copyMovesSuccess: "Moves copied",
+      copyMovesFail: "Could not copy moves",
       random: "Random",
       greedy: "Greedy",
       minimax: "Minimax",
@@ -477,7 +526,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateLegalMovesButtonText(mode) {
     const displayMode = mode || currentMode;
     const lockedOff = isLegalMovesLockedOffMode(displayMode);
-    const enabled = displayMode === "turtle-3" || displayMode === "bee-1" || displayMode === "bee-2" ? turtle3LegalMovesEnabled : legalMovesEnabled;
+    const enabled = displayMode === "turtle-3" || displayMode === "bee-1" || displayMode === "bee-2" || displayMode === "bee-3" ? turtle3LegalMovesEnabled : legalMovesEnabled;
 
     legalMovesButton.disabled = lockedOff;
     legalMovesButton.textContent = t(!lockedOff && enabled ? "legalMovesOn" : "legalMovesOff");
@@ -490,6 +539,11 @@ document.addEventListener("DOMContentLoaded", function () {
     playerLabel.textContent = t("player");
     botLabel.textContent = t("bot");
     movesTitle.textContent = t("moves");
+    if (copyHistoryButton) {
+      copyHistoryButton.textContent = "📋";
+      copyHistoryButton.title = t("copyMoves");
+      copyHistoryButton.setAttribute("aria-label", t("copyMoves"));
+    }
     if (materialAdvantageLabel) {
       materialAdvantageLabel.textContent = t("materialTitle");
     }
@@ -522,7 +576,8 @@ document.addEventListener("DOMContentLoaded", function () {
       "turtle-2": t("turtle2Mode"),
       "turtle-3": t("turtle3Mode"),
       "bee-1": t("bee1Mode"),
-      "bee-2": language === "vi" ? "Bee 2 - Thi lên lớp" : "Bee 2 - Test"
+      "bee-2": language === "vi" ? "Bee 2 - Thi lên lớp" : "Bee 2 - Test",
+      "bee-3": t("bee3Mode")
     });
     updateSelectOptionText(playerColorSelect, {
       w: t("white"),
@@ -568,7 +623,7 @@ document.addEventListener("DOMContentLoaded", function () {
     } else if (mode === "turtle-3") {
       botDifficultySelect.value = "minimax";
       botDifficultySelect.disabled = true;
-    } else if (mode === "bee-1" || mode === "bee-2") {
+    } else if (mode === "bee-1" || mode === "bee-2" || mode === "bee-3") {
       botDifficultySelect.value = "minimax";
       botDifficultySelect.disabled = true;
     } else {
@@ -620,6 +675,8 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.style.setProperty("--white-piece", themeConfig.pieceWhite);
     document.body.style.setProperty("--black-piece", themeConfig.pieceBlack);
     document.body.style.setProperty("--piece-outline", themeConfig.pieceOutline);
+    document.body.style.setProperty("--white-piece-stroke", themeConfig.whitePieceStroke);
+    document.body.style.setProperty("--black-piece-stroke", themeConfig.blackPieceStroke);
     document.body.style.setProperty("--white-piece-shadow", themeConfig.whitePieceShadow);
     document.body.style.setProperty("--black-piece-shadow", themeConfig.blackPieceShadow);
     document.body.style.setProperty("--selected-square", themeConfig.selectedSquare);
@@ -627,6 +684,8 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.style.setProperty("--legal-capture", themeConfig.legalCapture);
     document.body.style.setProperty("--last-move", themeConfig.lastMove);
     document.body.style.setProperty("--annotation-color", themeConfig.annotationColor);
+    document.body.style.setProperty("--analysis-arrow", themeConfig.analysisArrow);
+    document.body.style.setProperty("--analysis-circle", themeConfig.analysisCircle);
 
     try {
       localStorage.setItem(BOARD_THEME_STORAGE_KEY, boardTheme);
@@ -866,6 +925,12 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    if (isBotThinking && isBee3Mode()) {
+      status.textContent = t("bee3Thinking");
+      status.classList.add("neutral");
+      return;
+    }
+
     if (isTurtle1Mode()) {
       if (turtleGameOver) {
         status.textContent = t(turtleEndStatusKey, turtleEndStatusParams);
@@ -969,9 +1034,13 @@ document.addEventListener("DOMContentLoaded", function () {
     return currentMode === "bee-2";
   }
 
+  function isBee3Mode() {
+    return modeSelect && modeSelect.value === "bee-3" && currentMode === "bee-3";
+  }
+
   function getLearningSettings() {
     const legalMovesLockedOff = isTurtle1Mode() || isTurtle2Mode();
-    const showLegalMoves = isTurtle3Mode() || isBee1Mode() || isBee2Mode() ? turtle3LegalMovesEnabled : legalMovesEnabled;
+    const showLegalMoves = isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode() ? turtle3LegalMovesEnabled : legalMovesEnabled;
 
     return {
       allowKingCapture: isTurtle1Mode(),
@@ -985,11 +1054,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const learningOver = isTurtle1Mode() && turtleGameOver;
     const turtle2Over = isTurtle2Mode() && turtle2PenaltyGameOver;
     const standardOver = !isTurtle1Mode() && getGameOverInfo(game).isGameOver;
-    return (getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode()) && game.turn() !== playerColor && !learningOver && !turtle2Over && !standardOver && !pendingPromotion;
+    return (getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode()) && game.turn() !== playerColor && !learningOver && !turtle2Over && !standardOver && !pendingPromotion;
   }
 
   function isBotGameMode() {
-    return getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode();
+    return getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode();
   }
 
   function isCheckmatePosition(chessGame) {
@@ -1088,14 +1157,219 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function shouldScheduleBotMove() {
-    return !isReplayMode && !getGameOverInfo(game).isGameOver && isBotTurn() && (getCurrentMode() === "bot" || isTurtle1NewbornMode() || isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode());
+    return !isReplayMode && !getGameOverInfo(game).isGameOver && isBotTurn() && (getCurrentMode() === "bot" || isTurtle1NewbornMode() || isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode());
   }
 
   function usesPairedBotUndoMode() {
-    return getCurrentMode() === "bot" || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode();
+    return getCurrentMode() === "bot" || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode();
+  }
+
+  function isLegalBotMoveObject(move) {
+    if (!move || !move.from || !move.to) {
+      return false;
+    }
+
+    return game.moves({ verbose: true }).some(function (candidate) {
+      return candidate.from === move.from && candidate.to === move.to && (candidate.promotion || "") === (move.promotion || "");
+    });
+  }
+
+  function cancelPendingBee3Move() {
+    pendingBee3RequestId = null;
+    pendingBee3Fen = null;
+    pendingBee3BotColor = null;
+    bee3RequestId++;
+
+    if (botTimer) {
+      clearTimeout(botTimer);
+      botTimer = null;
+    }
+
+    isBotThinking = false;
+    botThinkToken++;
+    updateStatus();
+  }
+
+  function getBee3Worker() {
+    if (!bee3WorkerAvailable || typeof Worker === "undefined") {
+      if (!bee3WorkerFallbackLogged) {
+        console.warn("Bee 3 using main-thread fallback.", {
+          worker: false,
+          source: "MAIN_THREAD_FALLBACK",
+          reason: typeof Worker === "undefined" ? "Worker API unavailable" : "Worker disabled after error"
+        });
+        bee3WorkerFallbackLogged = true;
+      }
+      return null;
+    }
+
+    if (bee3Worker) {
+      return bee3Worker;
+    }
+
+    try {
+      bee3Worker = new Worker("bots/bee3-worker.js");
+      bee3WorkerFallbackLogged = false;
+      console.info("Bee 3 worker created.");
+      bee3Worker.onmessage = handleBee3WorkerMessage;
+      bee3Worker.onerror = function (error) {
+        console.error("Bee 3 worker error:", error);
+        console.warn("Bee 3 using main-thread fallback.");
+        bee3WorkerAvailable = false;
+        pendingBee3RequestId = null;
+        pendingBee3Fen = null;
+        pendingBee3BotColor = null;
+        isBotThinking = false;
+        botThinkToken++;
+        updateStatus();
+      };
+      return bee3Worker;
+    } catch (error) {
+      console.error("Bee 3 worker error:", error);
+      console.warn("Bee 3 using main-thread fallback.");
+      bee3WorkerAvailable = false;
+      return null;
+    }
+  }
+
+  function getBee3MainThreadMove(chessGame, color) {
+    if (window.Bee3Bot && typeof window.Bee3Bot.chooseBee3Move === "function") {
+      const move = window.Bee3Bot.chooseBee3Move(chessGame, color);
+      if (move) {
+        return move;
+      }
+      console.warn("Bee 3 returned no move.");
+      return null;
+    }
+
+    console.warn("Bee 3 is not loaded.");
+    return null;
+  }
+
+  function requestBee3WorkerMove(fen, botColor) {
+    const worker = getBee3Worker();
+    if (!worker) {
+      return false;
+    }
+
+    const requestId = ++bee3RequestId;
+    pendingBee3RequestId = requestId;
+    pendingBee3Fen = fen;
+    pendingBee3BotColor = botColor;
+    isBotThinking = true;
+    updateStatus();
+    console.info("Bee 3 worker request:", requestId);
+
+    try {
+      worker.postMessage({
+        type: "chooseBee3Move",
+        requestId: requestId,
+        fen: fen,
+        botColor: botColor
+      });
+      return true;
+    } catch (error) {
+      console.error("Bee 3 worker error:", error);
+      console.warn("Bee 3 using main-thread fallback.");
+      pendingBee3RequestId = null;
+      pendingBee3Fen = null;
+      pendingBee3BotColor = null;
+      isBotThinking = false;
+      updateStatus();
+      return false;
+    }
+  }
+
+  function handleBee3WorkerMessage(event) {
+    const data = event && event.data ? event.data : {};
+    if (data.type === "bee3WorkerLoaded") {
+      console.info("Bee 3 worker loaded", {
+        worker: data.worker === true,
+        hasChess: data.hasChess === true,
+        hasBee3: data.hasBee3 === true
+      });
+      if (!data.hasChess || !data.hasBee3) {
+        console.warn("Bee 3 using main-thread fallback.");
+        bee3WorkerAvailable = false;
+      }
+      return;
+    }
+
+    if (data.type !== "bee3MoveResult") {
+      return;
+    }
+
+    console.info("Bee 3 worker result:", data.requestId, data.elapsedMs, {
+      source: data.source,
+      worker: data.worker === true
+    });
+
+    if (data.requestId !== pendingBee3RequestId) {
+      return;
+    }
+
+    const requestFen = pendingBee3Fen;
+    const requestColor = pendingBee3BotColor;
+    pendingBee3RequestId = null;
+    pendingBee3Fen = null;
+    pendingBee3BotColor = null;
+
+    if (isReplayMode || getGameOverInfo(game).isGameOver || !isBee3Mode() || game.fen() !== requestFen || game.turn() !== requestColor) {
+      isBotThinking = false;
+      updateStatus();
+      return;
+    }
+
+    if (data.error) {
+      console.error("Bee 3 worker returned an error:", data.error);
+      console.warn("Bee 3 using main-thread fallback.", {
+        worker: false,
+        source: "MAIN_THREAD_FALLBACK"
+      });
+      const fallbackMove = getBee3MainThreadMove(game, requestColor);
+      if (fallbackMove && isLegalBotMoveObject(fallbackMove)) {
+        makeMove({
+          from: fallbackMove.from,
+          to: fallbackMove.to,
+          promotion: fallbackMove.promotion || "q"
+        }, { skipPremove: true });
+        lastBotMove = {
+          piece: fallbackMove.piece,
+          from: fallbackMove.from,
+          to: fallbackMove.to
+        };
+      }
+      isBotThinking = false;
+      renderBoard();
+      return;
+    }
+
+    if (!isLegalBotMoveObject(data.move)) {
+      console.warn("Bee 3 worker returned malformed or illegal move.", data.move);
+      isBotThinking = false;
+      renderBoard();
+      return;
+    }
+
+    makeMove({
+      from: data.move.from,
+      to: data.move.to,
+      promotion: data.move.promotion || "q"
+    }, { skipPremove: true });
+    lastBotMove = {
+      piece: data.move.piece,
+      from: data.move.from,
+      to: data.move.to
+    };
+    isBotThinking = false;
+    renderBoard();
   }
 
   function scheduleBotMove() {
+    if (isBotThinking) {
+      return;
+    }
+
     if (botTimer) {
       clearTimeout(botTimer);
       botTimer = null;
@@ -1105,9 +1379,29 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    const scheduledToken = ++botThinkToken;
     botTimer = setTimeout(function () {
       botTimer = null;
-      makeBotMove();
+      if (scheduledToken !== botThinkToken || !shouldScheduleBotMove() || isBotThinking) {
+        return;
+      }
+
+      isBotThinking = true;
+      setTimeout(function () {
+        try {
+          if (scheduledToken !== botThinkToken) {
+            return;
+          }
+          makeBotMove();
+        } catch (error) {
+          console.error("Bot move failed:", error);
+        } finally {
+          if (!pendingBee3RequestId) {
+            isBotThinking = false;
+            updateStatus();
+          }
+        }
+      }, 0);
     }, 300);
   }
 
@@ -1143,6 +1437,12 @@ document.addEventListener("DOMContentLoaded", function () {
       clearTimeout(botTimer);
       botTimer = null;
     }
+    pendingBee3RequestId = null;
+    pendingBee3Fen = null;
+    pendingBee3BotColor = null;
+    bee3RequestId++;
+    isBotThinking = false;
+    botThinkToken++;
 
     clearSelection();
     clearPremove();
@@ -1234,6 +1534,12 @@ document.addEventListener("DOMContentLoaded", function () {
       clearTimeout(botTimer);
       botTimer = null;
     }
+    pendingBee3RequestId = null;
+    pendingBee3Fen = null;
+    pendingBee3BotColor = null;
+    bee3RequestId++;
+    isBotThinking = false;
+    botThinkToken++;
 
     clearSelection();
     clearPremove();
@@ -1630,6 +1936,10 @@ document.addEventListener("DOMContentLoaded", function () {
   function getBotMove(chessGame, color) {
     const mode = modeSelect.value;
 
+    if (mode === "bee-3") {
+      return getBee3MainThreadMove(chessGame, color);
+    }
+
     if (mode === "bee-2") {
       if (window.Bee2Bot && typeof window.Bee2Bot.chooseBee2Move === "function") {
         console.log("Bee2 Context:", window.Bee2Bot.buildBee2Context(chessGame, color));
@@ -1737,10 +2047,55 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    if (isBee3Mode()) {
+      const bee3Fen = game.fen();
+      const bee3Color = game.turn();
+      if (requestBee3WorkerMove(bee3Fen, bee3Color)) {
+        renderBoard();
+        return;
+      }
+
+      console.info("Bee 3 main-thread fallback request:", {
+        worker: false,
+        source: "MAIN_THREAD_FALLBACK"
+      });
+      const bee3Move = getBee3MainThreadMove(game, bee3Color);
+
+      if (!bee3Move) {
+        renderBoard();
+        return;
+      }
+
+      if (!isLegalBotMoveObject(bee3Move)) {
+        console.warn("Bee 3 returned malformed or illegal move.", bee3Move);
+        renderBoard();
+        return;
+      }
+
+      makeMove({
+        from: bee3Move.from,
+        to: bee3Move.to,
+        promotion: bee3Move.promotion || "q"
+      }, { skipPremove: true });
+      lastBotMove = {
+        piece: bee3Move.piece,
+        from: bee3Move.from,
+        to: bee3Move.to
+      };
+      renderBoard();
+      return;
+    }
+
     if (isBee1Mode() || isBee2Mode()) {
       const beeMove = getBotMove(game, game.turn());
 
       if (!beeMove) {
+        renderBoard();
+        return;
+      }
+
+      if (!beeMove.from || !beeMove.to) {
+        console.warn("Bot returned malformed move.", beeMove);
         renderBoard();
         return;
       }
@@ -1796,13 +2151,16 @@ document.addEventListener("DOMContentLoaded", function () {
       clearTimeout(botTimer);
       botTimer = null;
     }
+    isBotThinking = false;
+    botThinkToken++;
   }
 
   function applyGameSettings() {
+    cancelPendingBee3Move();
     currentMode = modeSelect.value;
     playerColor = playerColorSelect.value;
-    botDifficulty = isTurtle1NewbornMode() ? "greedy" : isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode() ? "turtle-standard" : botDifficultySelect.value;
-    if (isTurtle3Mode() || isBee1Mode() || isBee2Mode()) {
+    botDifficulty = isTurtle1NewbornMode() ? "greedy" : isTurtle1StandardMode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode() ? "turtle-standard" : botDifficultySelect.value;
+    if (isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode()) {
       turtle3LegalMovesEnabled = false;
     }
 
@@ -1812,7 +2170,7 @@ document.addEventListener("DOMContentLoaded", function () {
     resetInteractionState();
     clearLearningState();
 
-    if ((currentMode === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode()) && playerColor === "b") {
+    if ((currentMode === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode()) && playerColor === "b") {
       boardFlipped = true;
       updateFlipButtonText();
     } else {
@@ -2623,7 +2981,7 @@ document.addEventListener("DOMContentLoaded", function () {
       console.log("[ClickMove] makeMove attempt", moveData.from, moveData.to, moveData);
     }
 
-    if (isReplayMode) {
+    if (isReplayMode || isBotThinking && !options) {
       return false;
     }
 
@@ -2709,6 +3067,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function undoMove() {
+    cancelPendingBee3Move();
+
     if (isReplayMode) {
       exitReplayMode(true);
     }
@@ -2830,6 +3190,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function redoMove() {
+    cancelPendingBee3Move();
+
     if (isReplayMode) {
       return;
     }
@@ -3097,6 +3459,69 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  function getCopyMoveLocale() {
+    return language === "vi" ? "VI" : "EN";
+  }
+
+  function buildMoveHistoryCopyText() {
+    const history = isTurtle1Mode() ? turtleMoveHistory : game.history({ verbose: true });
+    const locale = getCopyMoveLocale();
+    const lines = [];
+
+    for (let index = 0; index < history.length; index += 2) {
+      const whiteSan = history[index] && history[index].san ? formatMoveSAN(history[index].san, locale) : "";
+      const blackSan = history[index + 1] && history[index + 1].san ? formatMoveSAN(history[index + 1].san, locale) : "";
+      const line = Math.floor(index / 2) + 1 + ". " + whiteSan + (blackSan ? " " + blackSan : "");
+      lines.push(line.trim());
+    }
+
+    return lines.join("\n");
+  }
+
+  function copyMoveHistoryToClipboard() {
+    const text = buildMoveHistoryCopyText();
+    const onSuccess = function () {
+      if (copyHistoryButton) {
+        copyHistoryButton.textContent = "✓";
+        setTimeout(function () {
+          copyHistoryButton.textContent = "📋";
+        }, 1000);
+      }
+      showTemporaryStatus("copyMovesSuccess", {}, 1200);
+    };
+    const onFail = function (error) {
+      console.warn("Copy move history failed:", error);
+      if (typeof window.prompt === "function") {
+        window.prompt(t("copyMoves"), text);
+      } else {
+        showTemporaryStatus("copyMovesFail", {}, 1400);
+      }
+    };
+
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(text).then(onSuccess).catch(onFail);
+      return;
+    }
+
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "readonly");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      if (document.execCommand && document.execCommand("copy")) {
+        onSuccess();
+      } else {
+        onFail(new Error("execCommand copy failed"));
+      }
+      document.body.removeChild(textarea);
+    } catch (error) {
+      onFail(error);
+    }
+  }
+
   function playMoveSound(type) {
     if (!soundEnabled || typeof window.AudioContext === "undefined" && typeof window.webkitAudioContext === "undefined") {
       return;
@@ -3231,7 +3656,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (premoveSource) {
-if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode()) {
+      if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode()) {
         clearPremove();
         renderBoard();
         return;
@@ -3330,9 +3755,11 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
     }
 
     const squareSize = board.clientWidth / 8;
-    const annotationStroke = Math.max(3, Math.min(5, squareSize * 0.055));
+    const annotationStroke = Math.max(4, Math.min(6, squareSize * 0.065));
     const markerSize = Math.max(16, Math.min(22, squareSize * 0.28));
-    const annotationColor = getComputedStyle(document.body).getPropertyValue("--annotation-color").trim() || "rgba(249, 115, 22, 0.68)";
+    const computedBodyStyle = getComputedStyle(document.body);
+    const arrowColor = computedBodyStyle.getPropertyValue("--analysis-arrow").trim() || computedBodyStyle.getPropertyValue("--annotation-color").trim() || "#57c84d";
+    const circleColor = computedBodyStyle.getPropertyValue("--analysis-circle").trim() || computedBodyStyle.getPropertyValue("--annotation-color").trim() || "#57c84d";
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
     const markerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -3349,7 +3776,8 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
     marker.setAttribute("markerUnits", "userSpaceOnUse");
 
     markerPath.setAttribute("d", "M0,0 L0," + markerSize + " L" + markerSize + "," + markerSize / 2 + " z");
-    markerPath.setAttribute("fill", annotationColor);
+    markerPath.setAttribute("fill", arrowColor);
+    markerPath.setAttribute("opacity", "0.84");
     marker.appendChild(markerPath);
 
     const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
@@ -3364,8 +3792,9 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
       circle.setAttribute("cy", center.y);
       circle.setAttribute("r", squareSize * 0.36);
       circle.setAttribute("fill", "none");
-      circle.setAttribute("stroke", annotationColor);
+      circle.setAttribute("stroke", circleColor);
       circle.setAttribute("stroke-width", String(annotationStroke));
+      circle.setAttribute("opacity", "0.88");
       svg.appendChild(circle);
     });
 
@@ -3385,9 +3814,10 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
       line.setAttribute("y1", from.y);
       line.setAttribute("x2", endX);
       line.setAttribute("y2", endY);
-      line.setAttribute("stroke", annotationColor);
+      line.setAttribute("stroke", arrowColor);
       line.setAttribute("stroke-width", String(annotationStroke));
       line.setAttribute("stroke-linecap", "round");
+      line.setAttribute("opacity", "0.84");
       line.setAttribute("marker-end", "url(#arrow-head)");
       svg.appendChild(line);
     });
@@ -3545,7 +3975,7 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
       return;
     }
 
-    if ((getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode()) && piece.color !== playerColor) {
+    if ((getCurrentMode() === "bot" || isTurtle1Mode() || isTurtle2Mode() || isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode()) && piece.color !== playerColor) {
       return;
     }
 
@@ -3654,7 +4084,12 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
   redoButton.addEventListener("click", redoMove);
   flipButton.addEventListener("click", flipBoard);
   applySettingsButton.addEventListener("click", applyGameSettings);
-  modeSelect.addEventListener("change", updateModeControls);
+  modeSelect.addEventListener("change", function () {
+    cancelPendingBee3Move();
+    updateModeControls();
+  });
+  playerColorSelect.addEventListener("change", cancelPendingBee3Move);
+  botDifficultySelect.addEventListener("change", cancelPendingBee3Move);
 
   notationButton.addEventListener("click", function () {
     notationLocale = notationLocale === "EN" ? "VI" : "EN";
@@ -3678,7 +4113,7 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
   legalMovesButton.addEventListener("click", function () {
     if (isTurtle1Mode() || isTurtle2Mode()) {
       turtle3LegalMovesEnabled = false;
-    } else if (isTurtle3Mode() || isBee1Mode() || isBee2Mode()) {
+    } else if (isTurtle3Mode() || isBee1Mode() || isBee2Mode() || isBee3Mode()) {
       turtle3LegalMovesEnabled = !turtle3LegalMovesEnabled;
     } else {
       legalMovesEnabled = !legalMovesEnabled;
@@ -3688,7 +4123,12 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
     renderBoard();
   });
 
+  if (copyHistoryButton) {
+    copyHistoryButton.addEventListener("click", copyMoveHistoryToClipboard);
+  }
+
   resetButton.addEventListener("click", function () {
+    cancelPendingBee3Move();
     game.reset();
     exitReplayMode(true);
     hideGameOverOverlay();
@@ -3700,6 +4140,7 @@ if (getCurrentMode() === "bot" || isTurtle3Mode() || isBee1Mode() || isBee2Mode(
 
   if (newGameOverlayButton) {
     newGameOverlayButton.addEventListener("click", function () {
+      cancelPendingBee3Move();
       game.reset();
       exitReplayMode(true);
       hideGameOverOverlay();

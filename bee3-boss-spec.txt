@@ -1,0 +1,852 @@
+==================================================
+ICHESS BEE 3 BOSS SPEC
+BEE 3 – THE INHERITANCE GATE
+CÁNH CỬA KẾ THỪA
+==================================================
+
+File này là tài liệu thiết kế gốc cho Bee 3.
+
+Bee 3 KHÔNG phải là một bot được tạo ra bằng cách cộng thêm vài điểm tactic vào Bee 2.
+
+Bee 3 là boss cuối của Bee series.
+
+Bee 3 tồn tại để kiểm tra rằng học sinh đã thật sự kế thừa và giữ vững toàn bộ nền tảng từ Level 1 đến Level 5.
+
+Nếu học sinh thắng Bee 3, điều đó có nghĩa là học sinh đã đủ kỷ luật, đủ nền tảng, đủ khả năng xử lý áp lực để bước sang Monkey 1.
+
+==================================================
+0. TRIẾT LÝ CỐT LÕI
+==================================================
+
+Có một câu rất quan trọng:
+
+“Khoa học chính là sự kế thừa — người đi trước tích lũy và truyền lại cho người đi sau.”
+
+Bee 3 cũng như vậy.
+
+Bee 3 không đại diện cho một mẹo mới.
+Bee 3 không đại diện cho một trick khai cuộc.
+Bee 3 không phải engine giả dạng học sinh.
+
+Bee 3 là nơi tất cả kiến thức cũ được đặt dưới áp lực.
+
+Level 1 dạy học sinh không chết ngu.
+Level 2 dạy học sinh không chết Vua.
+Level 3 dạy học sinh không phát triển ngu và không đi nước ngây thơ.
+Level 4 dạy học sinh bảo vệ điểm yếu, khai thác điểm yếu, và hiểu rằng không quân nào là cỏ rác.
+Level 5 dạy học sinh xử lý ưu thế, cầm chiến thắng cho chắc, và biết chơi cờ tàn.
+
+Level 6 / Bee 3 không thay thế những điều đó.
+
+Level 6 hỏi một câu duy nhất:
+
+“Kiến thức của con có còn nguyên vẹn không,
+hay chỉ cần ván cờ phức tạp lên một chút là nền tảng bắt đầu sứt mẻ?”
+
+Bee 3 là bài kiểm tra độ nguyên vẹn của nền tảng.
+
+==================================================
+1. IDENTITY CỦA BEE 3
+==================================================
+
+Bee 3 là:
+
+- Boss cuối của Bee series.
+- Bot kiểm tra học sinh đã kế thừa Level 1–5 hay chưa.
+- Bot chơi chắc, sắc, có kế hoạch, nhưng không chơi bẩn.
+- Bot phạt rất nặng mọi sai lầm cơ bản.
+- Bot không tha cho sự cẩu thả.
+- Bot không được chết ngu.
+
+Bee 3 KHÔNG phải:
+
+- Stockfish clone.
+- Bot tối ưu Elo bằng mọi giá.
+- Bot chơi gambit/sacrifice mơ hồ.
+- Bot dùng trick lạ để thắng học sinh.
+- Bot đánh liều.
+- Bot “ngầu” nhưng sai nền.
+- Bot engine cosplay.
+
+Mục tiêu sức mạnh:
+
+Bee 3 nên hướng tới khoảng 1500–1700 educational strength.
+
+Nghĩa là:
+
+- Học sinh dưới nền tảng sẽ thấy rất khó chịu.
+- Học sinh đánh cẩu thả sẽ bị phạt ngay.
+- Học sinh chỉ thuộc bài nhưng không hiểu bản chất sẽ bị bóc lỗi.
+- Học sinh thắng được Bee 3 phải chứng minh được kỷ luật cờ thật sự.
+- Bee 3 có thể không tìm mọi nước engine-best, nhưng không được yếu ở nền tảng.
+
+==================================================
+2. LUẬT CỨNG TUYỆT ĐỐI
+==================================================
+
+Bee 3 CẤM tuyệt đối chết ngu.
+
+Đây là luật số 1.
+
+Không được có bất kỳ lý do nào để Bee 3:
+
+- bỏ Hậu miễn phí
+- bỏ Xe miễn phí
+- để Mã/Tượng bị Tốt ăn miễn phí
+- ăn quân rồi lỗ material rõ
+- bỏ qua quân đang bị tấn công nghiêm trọng
+- bỏ qua direct recapture an toàn
+- bỏ qua mate threat rõ
+- thoát chiếu bằng nước làm mất quân vô nghĩa
+- đẩy pawn làm vỡ Vua khi không có lý do
+- đổi quân vào thế hòa khi đang thắng rõ
+- stalemate khi đang thắng lớn
+- chơi active move trong khi nền đang cháy
+
+Các luật cứng:
+
+1. Không sacrifice.
+2. Không compensation mơ hồ.
+3. Không tactic nếu SEE báo lỗ.
+4. Không dùng pressure để bù cho mất quân.
+5. Không dùng “kế hoạch” để bỏ qua threat trực tiếp.
+6. Không dùng “tấn công Vua” để bỏ qua material safety.
+7. Không dùng “cờ tàn” để bỏ qua king safety.
+8. Không dùng “phát triển quân” để bỏ qua quân đang bị ăn.
+9. Không dùng “Rook plan” nếu còn lỗi Level 1–2.
+10. Không dùng “tactical punisher” nếu move vi phạm Level thấp.
+
+Quy tắc vàng:
+
+LOWER LEVEL OVERRIDES HIGHER LEVEL.
+
+Level 1 có quyền phủ quyết mọi tactic.
+Level 2 có quyền phủ quyết mọi kế hoạch.
+Level 3 có quyền phủ quyết mọi nước vô nghĩa.
+Level 4 có quyền phủ quyết mọi đòn tấn công bỏ quên điểm yếu của mình.
+Level 5 có quyền phủ quyết các plan làm mất thế thắng.
+
+Bee 3 chỉ được mạnh hơn Bee 2 nếu nó không phá bất kỳ tầng nào trước đó.
+
+==================================================
+3. KẾ THỪA LEVEL 1 – KHÔNG CHẾT NGU
+==================================================
+
+Level 1 là nền móng.
+
+Bee 3 phải nắm chắc:
+
+- Giá trị quân.
+- Ăn hơn quân.
+- Không ăn nếu bị lỗ.
+- Quân được bảo vệ chưa chắc đã an toàn.
+- Attacker/defender phải được xét bằng giá trị, không chỉ bằng số lượng.
+- Capture phải qua SEE-lite hoặc SEE-medium.
+- Direct recapture phải được ưu tiên nếu an toàn.
+- Material emergency phải được xử lý ngay.
+
+Bee 3 không được:
+
+- ăn Tốt bằng Mã/Tượng rồi bị đổi lỗ
+- ăn quân vì “có vẻ free” nhưng thua chuỗi recapture
+- bỏ quân đang bị pawn attack
+- chạy nước khác khi Hậu/Xe/Mã/Tượng đang bị đe dọa
+- bỏ qua unit stewardship
+- nghĩ rằng “có defender” là đủ an toàn
+
+Tinh thần:
+
+“Mỗi quân là đồng đội.
+Một quân chỉ được nằm xuống nếu nó đổi được giá trị tương xứng hoặc cứu nguy thật sự.
+Không quân nào được chết vô nghĩa.”
+
+Pawn cũng là quân.
+Pawn biên không phải cỏ rác.
+Pawn trung tâm không phải tự nhiên được bỏ.
+Pawn trước Vua không được đẩy lung tung.
+
+Nhưng Bee 3 cũng không được overprotect.
+
+Không phải pawn nào bị nhìn cũng hoảng.
+
+Bee 3 phải phân biệt:
+
+- bị attack nhưng exchange ổn
+- bị attack và có thể recapture
+- bị attack và sẽ lỗ
+- bị attack và sau khi bị ăn sẽ tạo tactic/fork/open file nguy hiểm
+- bị attack nhưng đó chỉ là áp lực khai cuộc bình thường, không phải emergency thật
+
+==================================================
+4. KẾ THỪA LEVEL 2 – KHÔNG CHẾT VUA
+==================================================
+
+Level 2 là luật sống còn.
+
+Bee 3 phải:
+
+- nhận diện check
+- nhận diện checkmate
+- nhận diện mate-in-1 của mình
+- nhận diện mate-in-1 của đối thủ
+- nhận diện double check
+- biết rằng double check thường chỉ có thể chạy Vua
+- xử lý check bằng nước tốt nhất, không chỉ nước hợp lệ
+
+Khi bị chiếu, thứ tự ưu tiên:
+
+1. Ăn quân đang chiếu nếu an toàn.
+2. Che đường chiếu bằng quân an toàn.
+3. Chạy Vua vào ô an toàn.
+
+Nhưng:
+
+- Block check bằng quân treo miễn phí là sai.
+- King move làm mất Hậu/Xe ngay sau đó là sai nếu có cách tốt hơn.
+- Ăn checker bằng quân lớn rồi bị lỗ lớn là sai nếu có cách khác.
+- Không được thoát chiếu hợp lệ nhưng phá Level 1 nếu còn lựa chọn tốt.
+
+Bee 3 phải hiểu:
+
+“Thoát chiếu hợp lệ chưa đủ.
+Thoát chiếu phải sạch.”
+
+Bee 3 phải có mate threat defense rõ ràng:
+
+- Nếu đối thủ dọa mate-in-1, phải xử lý.
+- Nếu có thể ăn quân tạo mate, phải ăn.
+- Nếu có thể chặn đường mate, phải chặn.
+- Nếu có thể tạo ô thoát cho Vua, phải cân nhắc.
+- Nếu có thể đổi Hậu để hết mate threat, phải ưu tiên nếu an toàn.
+- Nếu mọi cách đều xấu, chọn cách sống lâu nhất và giữ cơ hội phòng thủ.
+
+==================================================
+5. KẾ THỪA LEVEL 3 – KHÔNG PHÁT TRIỂN NGU, KHÔNG NGÂY THƠ
+==================================================
+
+Level 3 là kỷ luật của nước đi.
+
+Bee 3 phải hiểu:
+
+Mỗi nước đi phải có ý đồ.
+
+Ý đồ hợp lệ:
+
+- Mate
+- Chặn mate
+- Ăn quân có lời
+- Recapture
+- Phòng thủ quân/yếu điểm
+- Phát triển quân
+- Kiểm soát trung tâm
+- Nhập thành
+- Nối Xe
+- Cải thiện quân xấu
+- Tấn công điểm yếu thật
+- Tạo threat 1 nước hoặc 2 nước an toàn
+- Đổi quân đúng khi đang hơn
+- Tạo kế hoạch cờ tàn rõ
+- Sinh tồn khi mọi nước đều xấu
+
+Không có ý đồ → phạt nặng hoặc loại nếu còn nước có ý đồ.
+
+Bee 3 trong khai cuộc phải:
+
+- kiểm soát trung tâm
+- phát triển quân nhẹ
+- nhập thành sớm
+- không đi một quân nhiều lần vô lý
+- không đưa Hậu ra sớm
+- nối Xe
+- hoàn thành phát triển
+
+Bee 3 không được:
+
+- đi Xe sớm khi file chưa mở
+- đi Hậu vô nghĩa
+- chạy Mã đã phát triển chỉ vì bị “nhìn”
+- chơi Ruy Lopez bằng những nước sợ bóng sợ gió
+- phá strict repertoire nếu không có material/king emergency thật
+- dùng opening book để bỏ qua quân đang bị ăn
+
+Bee 3 không được ngây thơ.
+
+Không được nghĩ:
+
+- “Tôi được cộng điểm phát triển nên đi.”
+- “Tôi có pressure nên bỏ qua capture.”
+- “Tôi tấn công Vua nên không cần giữ quân.”
+- “Tôi đang khai cuộc nên không cần recapture.”
+
+Khai cuộc không được override an toàn.
+Nhưng an toàn giả cũng không được override khai cuộc.
+
+Ví dụ:
+
+Bb5 nhìn vào Nc6 trong Ruy Lopez không phải material emergency thật nếu Đen có recapture bình thường.
+
+==================================================
+6. KẾ THỪA LEVEL 4 – ĐIỂM YẾU, KHÔNG AI LÀ CỎ RÁC
+==================================================
+
+Level 4 là nơi bot biết nhìn vào điểm yếu.
+
+Bee 3 phải biết:
+
+- điểm yếu của đối thủ
+- điểm yếu của chính mình
+- quân không được bảo vệ
+- quân nhiều điểm bị quân ít điểm attack
+- attacker > defender
+- attacker = defender là điểm yếu tiềm năng
+- overloaded defender
+- removing defender
+- fork
+- pin
+- skewer
+- discovered attack
+- double attack
+- deflection/attraction ở mức an toàn
+
+Nhưng Bee 3 không được dùng tactic nếu:
+
+- tactic đó mất material rõ
+- tactic đó bỏ qua mate threat
+- tactic đó làm Vua mình nguy hiểm
+- tactic đó là sacrifice mơ hồ
+- tactic đó chỉ “trông hay” nhưng không thắng gì
+
+Bee 3 phải có tinh thần:
+
+“Không quân nào là cỏ rác.”
+
+Nghĩa là:
+
+- Pawn bị attack vẫn phải được xét.
+- Pawn bị ăn có tạo passed pawn cho đối thủ không?
+- Pawn bị ăn có mở file vào Vua không?
+- Pawn bị ăn có tạo fork tiếp theo không?
+- Pawn bị ăn có làm sập cấu trúc không?
+- Pawn bị ăn có đáng để bỏ không?
+
+Bee 3 không phải bot hoảng sợ.
+Bee 3 phải là bot biết giá trị của từng quân.
+
+Không overprotect.
+Không bỏ mặc.
+Không xem quân nào là rác.
+
+==================================================
+7. KẾ THỪA LEVEL 5 – CẦM CHIẾN THẮNG CHO CHẮC
+==================================================
+
+Level 5 là tầng xử lý ưu thế và cờ tàn.
+
+Bee 3 phải kế thừa toàn bộ Bee 2.
+
+Khi hơn quân:
+
+- Không nhây.
+- Không để đối thủ tạo counterplay.
+- Không săn pawn rác nếu có thể đổi Hậu.
+- Không mở Vua.
+- Không cho perpetual check.
+- Không đổi sai loại quân.
+- Không đổi vào hòa.
+- Không để mất thế thắng.
+
+Khi hơn ít:
+
+- đổi quân mạnh nếu an toàn
+- ưu tiên đổi Hậu
+- sau đó đổi Xe
+- giữ cấu trúc Tốt
+- đánh điểm yếu nếu không đổi được
+
+Khi hơn nhiều:
+
+- tìm mate
+- ép Vua
+- đổi Hậu nếu đối thủ còn phản công
+- đưa về cờ tàn thắng chắc
+- không kéo dài vô nghĩa
+
+Khi thua:
+
+- không đổi Hậu/Xe vô ích
+- tìm counterplay an toàn
+- tìm perpetual nếu có
+- tìm stalemate nếu thua nặng
+- giữ quân mạnh nếu cần
+
+Trong cờ tàn:
+
+- trung tâm hóa Vua
+- hỗ trợ Tốt thông
+- chặn Tốt thông đối thủ
+- dùng Xe cắt Vua
+- dùng Hậu/Xe hỗ trợ phong cấp
+- tránh stalemate khi thắng
+- tìm cơ hội hòa khi thua
+
+Bee 3 phải chơi cờ tàn tốt hơn Bee 2.
+
+==================================================
+8. KIẾN THỨC MỚI CỦA BEE 3 / LEVEL 6
+==================================================
+
+Level 6 không phải “học thêm mẹo rời rạc”.
+
+Level 6 là khả năng vận hành đồng thời tất cả kiến thức dưới áp lực.
+
+Bee 3 có thể thêm các module:
+
+1. Rook Planning
+2. Mate Threat Defense
+3. Multi Mate-in-1 Finder
+4. Draw Awareness
+5. Tactical Punisher 2-ply
+6. Conversion Discipline
+7. Pressure Test Logic
+
+==================================================
+8A. ROOK PLANNING
+==================================================
+
+Bee 3 phải biết lập kế hoạch cho Xe.
+
+Xe không được đi sớm vô nghĩa.
+Nhưng khi phát triển đã đủ, Xe phải biết làm việc.
+
+Bee 3 nên hiểu:
+
+- open file
+- semi-open file
+- doubled rooks
+- rook on 7th rank
+- rook behind passed pawn
+- rook cutting enemy king
+- rook defending important pawn
+- rook supporting promotion
+- rook trade when ahead
+- avoid rook trade when behind
+
+Function gợi ý:
+
+- evaluateOpenFileRook()
+- evaluateSemiOpenFileRook()
+- evaluateRookOn7thRank()
+- evaluateRookBehindPassedPawn()
+- evaluateRookCutoff()
+- chooseRookPlanMove()
+
+Bee 3 không được:
+
+- Rb8/Ra8/Re8 vô nghĩa khi chưa có file/mục tiêu
+- đi Xe khi còn quân nhẹ chưa phát triển trừ khi có lý do
+- bỏ quân để đưa Xe vào file đẹp
+
+==================================================
+8B. MATE THREAT DEFENSE
+==================================================
+
+Bee 3 phải giỏi phòng thủ mate hơn Bee 2.
+
+Bee 3 phải phát hiện:
+
+- opponent mate-in-1
+- opponent obvious mate threat
+- Queen + Knight battery
+- Bishop + Queen diagonal
+- Rook/Queen open file toward King
+- back rank weakness
+- no escape square
+- pinned defender near King
+
+Cách phòng thủ:
+
+- ăn attacker
+- đổi Queen
+- chặn line
+- tạo escape square
+- chạy Vua nếu cần
+- thêm defender
+- trả check nếu buộc đối thủ xử lý
+
+Function gợi ý:
+
+- findOpponentMateInOneThreats()
+- chooseMateDefenseMove()
+- evaluateEscapeSquareCreation()
+- evaluateBlockingMateLine()
+- evaluateQueenTradeUnderKingDanger()
+
+==================================================
+8C. MULTI MATE-IN-1 FINDER
+==================================================
+
+Bee 3 không chỉ tìm mate-in-1 đầu tiên.
+
+Bee 3 nên tìm tất cả mate-in-1 và chọn nước sạch nhất.
+
+Nước mate sạch:
+
+- không sacrifice nếu không cần
+- không dùng quân quá phức tạp nếu có mate đơn giản
+- không kéo dài
+- không bỏ qua mate rõ
+- không chọn check không mate nếu có mate
+
+Function gợi ý:
+
+- findAllMateInOneMoves()
+- scoreMateInOneMove()
+- chooseCleanMateMove()
+
+==================================================
+8D. DRAW AWARENESS
+==================================================
+
+Bee 3 phải hiểu hòa.
+
+Khi đang thắng:
+
+- tránh stalemate
+- tránh đổi vào cờ hòa
+- tránh hết lực chiếu bí
+- tránh perpetual
+- giữ đủ material thắng
+
+Khi đang thua:
+
+- tìm stalemate
+- tìm perpetual
+- đổi quân để giảm thua nếu hướng tới hòa
+- giữ Vua gần vùng phong cấp
+- chặn Tốt thông
+
+Function gợi ý:
+
+- detectStalemateRisk()
+- avoidStalemateWhenWinning()
+- seekStalemateWhenLost()
+- avoidTradeToDrawWhenAhead()
+- evaluateTradeToDrawWhenBehind()
+
+==================================================
+8E. TACTICAL PUNISHER 2-PLY
+==================================================
+
+Bee 3 được phép thấy tactic sâu hơn Bee 2.
+
+Nhưng vẫn không sacrifice.
+
+Tactic phù hợp:
+
+- fork
+- pin
+- skewer
+- discovered attack
+- removing defender
+- overloaded defender
+- deflection nếu không sacrifice
+- mate threat setup
+
+Function gợi ý:
+
+- detectForkMove()
+- detectPinMove()
+- detectSkewerMove()
+- detectDiscoveredAttackMove()
+- detectRemoveDefenderMove()
+- detectOverloadedDefenderMove()
+- getTacticalPunisherScore()
+
+Nhưng:
+
+Nếu tactic vi phạm Level 1–2 → loại.
+Nếu SEE báo lỗ → loại.
+Nếu chỉ là pressure mơ hồ → không chọn.
+
+==================================================
+9. ROOT PRIORITY CỦA BEE 3
+==================================================
+
+Bee 3 nên chọn nước theo thứ tự:
+
+1. Nếu đang bị chiếu → chọn check response tốt nhất.
+2. Nếu có mate-in-1 → đi mate sạch nhất.
+3. Nếu đối thủ có mate-in-1 → chặn ngay.
+4. Direct recapture sau khi bị ăn quân.
+5. Safe high-value capture.
+6. SEE-medium capture safety.
+7. Material emergency / unit stewardship.
+8. Important pawn / structure defense.
+9. Strict opening repertoire.
+10. King danger defense.
+11. Rook planning nếu đã đủ điều kiện.
+12. Tactical punisher 2-ply.
+13. Advantage conversion.
+14. Endgame / draw awareness.
+15. Improve worst piece.
+16. Bee 2 fallback nếu cần.
+17. Nếu không có nước có ý đồ → chọn nước ít sai nhất, không random.
+
+Không được đảo thứ tự tùy hứng.
+
+Đặc biệt:
+
+- Rook planning không được chạy trước safety.
+- Tactical punisher không được chạy trước material emergency.
+- Opening không được chạy trước check/recapture.
+- Unit stewardship không được overprotect nếu exchange bình thường.
+- Advantage conversion không được bỏ qua mate threat.
+- Endgame plan không được stalemate.
+
+==================================================
+10. TIÊU CHÍ PASS CỦA BEE 3
+==================================================
+
+Bee 3 đạt chuẩn nếu:
+
+1. Không chết ngu.
+2. Không bỏ quân.
+3. Không ăn lỗ.
+4. Không bỏ qua chiếu/mate threat.
+5. Không phát triển ngu.
+6. Không chơi khai cuộc trick.
+7. Không overprotect vô lý.
+8. Không bỏ qua direct recapture.
+9. Không bỏ qua free material an toàn.
+10. Không để quân/pawn chết vô nghĩa.
+11. Biết dùng Xe có kế hoạch.
+12. Biết phòng thủ mate.
+13. Biết tìm mate-in-1 sạch.
+14. Biết tránh stalemate khi thắng.
+15. Biết tìm cơ hội hòa khi thua.
+16. Biết phạt tactic 2-ply rõ.
+17. Biết đổi quân khi hơn.
+18. Biết giữ quân mạnh khi thua.
+19. Biết cờ tàn tốt hơn Bee 2.
+20. Đánh thắng học sinh thiếu kỷ luật một cách thuyết phục.
+
+==================================================
+11. TIÊU CHÍ FAIL CỦA BEE 3
+==================================================
+
+Bee 3 fail nếu:
+
+- bỏ quân ngu dù chỉ một lần trong test chính
+- đi nước vô nghĩa khi có threat rõ
+- chạy quân vì sợ giả
+- ăn pawn rồi lỗ quân
+- bỏ qua mate-in-1
+- bị stalemate khi đang thắng lớn
+- đổi Hậu vào thế hòa khi đang hơn nhiều
+- dùng Rook move không mục tiêu
+- để Vua cháy mà vẫn đi plan khác
+- chơi tactic mơ hồ kiểu engine giả
+- phá bất kỳ luật nào từ Level 1–5
+
+==================================================
+12. TEST GAUNTLET CẦN CÓ
+==================================================
+
+Bee 3 phải qua test theo nhóm:
+
+A. Level 1 Test
+- hanging piece
+- bad capture
+- SEE trap
+- direct recapture
+- attacked piece emergency
+- pawn stewardship
+
+B. Level 2 Test
+- check response
+- double check
+- mate-in-1
+- opponent mate-in-1
+- check block material safety
+- king danger
+
+C. Level 3 Test
+- Italian opening
+- Ruy Lopez opening
+- no queen early
+- no knight repeat
+- no rook early
+- development completion
+
+D. Level 4 Test
+- weak piece attack
+- own weakness defense
+- fork
+- pin
+- skewer
+- discovered attack
+- overloaded defender
+
+E. Level 5 Test
+- winning conversion
+- queen trade when ahead
+- avoid queen trade when behind
+- passed pawn support
+- stop opponent passed pawn
+- king centralization
+- avoid stalemate
+
+F. Level 6 Test
+- rook planning
+- mate threat defense
+- multi mate-in-1
+- draw awareness
+- tactic 2-ply
+- pressure integrity
+
+==================================================
+13. CODEX INSTRUCTION
+==================================================
+
+CodeX phải đọc file này trước khi code Bee 3.
+
+CodeX không được tự sáng tạo logic ngoài tinh thần file này.
+
+Nếu có mâu thuẫn:
+
+- ưu tiên Level thấp hơn
+- ưu tiên không chết ngu
+- ưu tiên safety hơn tactic
+- ưu tiên logic giáo dục hơn Elo
+
+Không được biến Bee 3 thành engine.
+
+Không được tối ưu bằng trick.
+
+Không được thêm sacrifice.
+
+Không được thêm compensation.
+
+Không được dùng random fallback.
+
+Không được phá Bee 2.
+
+Bee 3 phải là một file riêng:
+
+bots/bee3.js
+
+Bee 3 có thể reuse ý tưởng từ Bee 2, nhưng không được làm hỏng Bee 2.
+
+==================================================
+14. KHẨU QUYẾT BEE 3
+==================================================
+
+Không chết ngu.
+Không chết Vua.
+Không phát triển ngây thơ.
+Không bỏ rơi đồng đội.
+Không đánh mất chiến thắng.
+Không quên cờ tàn.
+Không để nền tảng sứt mẻ.
+
+Thắng Bee 3 nghĩa là học sinh đã đủ kỷ luật để bước qua Bee series.
+
+==================================================
+15. BOARD VISION / ATTACK-DEFENSE MAP
+==================================================
+
+Bee 3 phải có mắt trước khi có kế hoạch.
+
+Bee bot không được thua vì lỗi không quan sát bàn cờ trực tiếp.
+Bee 3 có thể không tìm best move kiểu engine, nhưng không được bỏ sót:
+
+- hàng ngang
+- hàng dọc
+- đường chéo
+- 8 ô chân Mã
+- chốt ăn chéo
+- Vua quanh 8 ô
+
+Với mọi quân và mọi ô quan trọng, Bee 3 phải biết:
+
+- ô này đang bị quân nào tấn công
+- ô này đang được quân nào bảo vệ
+- quân nào đang treo
+- quân nào đang bị chốt/Mã/Tượng/Xe/Hậu/Vua tấn công
+- recapture có thật sự an toàn không
+- defender có thật không, hay là defender giả
+
+Không được đếm attacker/defender thô.
+
+Cấm kết luận:
+
+"2 attackers = 2 defenders nên an toàn."
+
+Bee 3 phải xét:
+
+- giá trị attacker
+- giá trị defender
+- defender có bị pin không
+- defender có overload không
+- King defender có thật sự ăn được không
+- Queen/Rook recapture có bị ăn tiếp không
+- sau khi recapture, material balance có lỗ rõ không
+
+Queen/Rook recapture phải cực kỳ cẩn thận.
+
+Nếu Hậu hoặc Xe recapture lên một ô:
+
+- phải kiểm tra mọi quân đối thủ đang tấn công ô đó sau move
+- nếu Hậu/Xe bị ăn ngay mà không bù đủ material, phải reject
+- ví dụ: Queen recapture on d5 nhưng Bishop c4 có thể Bxd5 thì không được coi là recapture sạch
+
+Bee bots are not allowed to lose because they failed to see a direct attack.
+
+Học sinh nên thắng Bee bằng:
+
+- fork
+- pin
+- skewer
+- discovered attack
+- overloaded defender
+- mating net
+- sacrifice có tính toán
+- kế hoạch thật
+
+Học sinh không nên thắng Bee vì:
+
+- Bee treo Hậu
+- Bee treo Xe
+- Bee treo quân nhẹ
+- Bee bỏ quân bị chốt ăn
+- Bee đi Hậu vào chân Mã
+- Bee recapture bằng Hậu vào đường Tượng/Xe
+- Bee đếm defender sai
+- Bee coi King là defender khi King không thể ăn
+- Bee bỏ qua quân miễn phí
+
+Phong cách Bee 3 sau Board Vision:
+
+- phòng thủ chắc
+- không chủ động sacrifice
+- không gambit mơ hồ
+- không attack ảo
+- không hoa mỹ nếu chưa an toàn
+- trừng phạt ngay nếu học sinh treo quân hoặc sai tactic rõ
+
+Bee 3 is hard to beat by simple mistakes, but can be beaten by real tactics and calculated plans.
+
+Future note: Sau khi Board Vision ổn định, Bee series có thể mở rộng Mate Vision:
+
+- mate-in-1
+- mate-in-2 cơ bản
+- mating net đơn giản
+
+Mate Vision không được override safety thấp hơn trừ khi checkmate thật sự kết thúc ván.
+
+Future note: Board Vision nên được tách thành shared core để Bee 1/Bee 2/Bee 3 cùng dùng.
+Lỗi quan sát là lỗi nền, không phải riêng Bee 3.
+
+==================================================
+END OF BEE 3 BOSS SPEC
+==================================================

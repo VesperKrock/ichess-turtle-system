@@ -1,0 +1,897 @@
+==================================================
+BEE 3 IMPLEMENTATION CONTRACT
+TECHNICAL CONTRACT FOR BEE 3 IMPLEMENTATION
+==================================================
+
+File này bổ sung cho `bee3-boss-spec.txt`.
+
+Nếu `bee3-boss-spec.txt` là linh hồn của Bee 3,
+thì file này là hợp đồng triển khai kỹ thuật.
+
+CodeX phải đọc cả hai file trước khi code Bee 3.
+
+Bee 3 không được code bằng cảm giác.
+Bee 3 phải code theo pipeline, safety definition, rejection reason và test threshold rõ ràng.
+
+==================================================
+0. RELATIONSHIP WITH BOSS SPEC
+==================================================
+
+`bee3-boss-spec.txt` định nghĩa:
+
+- identity
+- triết lý
+- luật cứng
+- kế thừa Level 1–5
+- mục tiêu giáo dục
+
+`bee3-implementation-contract.txt` định nghĩa:
+
+- safety cụ thể
+- pipeline chọn nước
+- hard filter vs heavy penalty
+- rejection/debug reasons
+- risk budget
+- opponent model
+- anti-engine behavior
+- pass threshold
+- draw scope
+- module conflict resolution
+
+Nếu hai file có mâu thuẫn:
+
+1. Không chết ngu thắng.
+2. Level thấp hơn thắng level cao hơn.
+3. Safety thắng tactic.
+4. Logic giáo dục thắng Elo.
+5. Implementation contract giải thích cách triển khai cụ thể.
+
+==================================================
+1. SAFETY DEFINITIONS
+==================================================
+
+Bee 3 dùng 3 lớp safety:
+
+--------------------------------------------------
+1.1. LEGAL_SAFE
+--------------------------------------------------
+
+A move is LEGAL_SAFE if:
+
+- it is legal according to chess.js
+- it does not leave Bee's king in check
+- if Bee is currently in check, the move resolves the check
+- king moves do not move into attacked squares
+
+LEGAL_SAFE does NOT include strategic or tactical quality.
+
+It only means the move is legally playable and king-legal.
+
+--------------------------------------------------
+1.2. MATERIAL_SAFE
+--------------------------------------------------
+
+A move is MATERIAL_SAFE if:
+
+- it does not hang Queen/Rook/minor piece for free
+- it does not ignore direct recapture of material from minor piece or higher
+- it does not make SEE-losing capture
+- it does not move a valuable piece to a square controlled by a lower-value piece when that piece can be captured profitably and Bee has no adequate recapture or tactic
+- it does not ignore material emergency
+
+MATERIAL_SAFE focuses on concrete material loss.
+
+It should not overblock normal chess moves where recapture or tactic makes the move safe.
+
+--------------------------------------------------
+1.3. BOSS_SAFE
+--------------------------------------------------
+
+A move is BOSS_SAFE if:
+
+- LEGAL_SAFE
+- MATERIAL_SAFE
+- it does not allow opponent mate-in-1 when preventable
+- it does not allow obvious 1-ply tactic winning Queen/Rook/minor piece when preventable
+- it does not worsen king danger under direct attack
+- it does not open king pawn shield without concrete reason
+- it does not risk stalemate/draw when clearly winning
+- it has at least one valid purpose or is tagged SURVIVAL when all moves are bad
+
+Bee 3 should choose BOSS_SAFE in most situations.
+
+==================================================
+2. MATE-IN-1 OVERRIDES SEE
+==================================================
+
+A move that immediately checkmates the opponent is allowed even if SEE appears negative.
+
+Reason:
+
+The game ends immediately.
+
+This is not sacrifice.
+This is checkmate.
+
+Rule:
+
+MATE_IN_ONE > SEE > material safety evaluation.
+
+But:
+
+A checking move that is not mate must obey SEE and safety.
+
+==================================================
+3. DIRECT RECAPTURE SAFETY
+==================================================
+
+Direct recapture is high priority, but not automatic.
+
+Direct recapture is preferred only if:
+
+- the recapture is legal
+- it resolves any current check if Bee is in check
+- SEE >= 0 or material balance after exchange is acceptable
+- it does not allow opponent mate-in-1
+- it does not hang Queen/Rook/higher-value piece
+- it does not worsen king safety catastrophically
+
+Direct recapture is not automatic if it is a trap.
+
+Important exception:
+
+Direct recapture is high priority, but a clearly larger safe material gain may override it if it does not create mate/material emergency.
+
+Example:
+
+If Bee can either recapture a minor piece or safely win the opponent Queen, Bee may choose the larger safe material gain.
+
+==================================================
+4. MOVE SELECTION PIPELINE
+==================================================
+
+Bee 3 move selection pipeline:
+
+1. Generate legal moves.
+
+2. If in check:
+   - run CHECK_RESPONSE selector first.
+   - check responses must be legal and king-safe.
+   - score check responses by:
+     + capture checker safely
+     + block check safely
+     + king move safely
+     + avoid material disaster
+   - if all check responses are bad, choose least losing legal check response.
+   - return selected check response.
+
+3. Detect own mate-in-1.
+   - If exists, choose cleanest mate.
+   - Mate-in-1 overrides SEE.
+
+4. Detect opponent mate-in-1 threat.
+   - Detect whether opponent currently threatens mate-in-1.
+   - Also detect whether Bee's candidate move allows opponent mate-in-1.
+   - If exists, choose defense.
+   - If multiple defenses, choose safest.
+
+5. Apply hard filter to normal candidates.
+
+6. Emergency selectors:
+   - direct recapture
+   - safe high-value capture
+   - material emergency
+   - unit stewardship
+   - important pawn/structure defense
+
+7. Strategic selectors/scoring:
+   - strict opening
+   - king danger defense
+   - rook planning
+   - tactical punisher 2-ply
+   - advantage conversion
+   - endgame/draw awareness
+   - improve worst piece
+
+8. Tie-break:
+   - lowest risk
+   - best material safety
+   - best king safety
+   - simplest educational move
+   - deterministic final ordering
+
+9. If hard filter removes all moves:
+   - invoke ALL_MOVES_BAD fallback.
+   - never random.
+
+==================================================
+5. HARD FILTER VS HEAVY PENALTY
+==================================================
+
+Hard filter only removes objectively losing or illegal moves.
+
+Educational/style mistakes may be heavy penalties unless a better move exists.
+
+--------------------------------------------------
+5.1. ABSOLUTE_REJECT
+--------------------------------------------------
+
+ABSOLUTE_REJECT only for:
+
+- illegal move
+- leaves own king in check
+- ignores current check
+- allows immediate mate when preventable
+- hangs Queen/Rook/minor piece clearly
+- SEE-losing capture without mate
+- ignores direct mate threat
+- stalemate when clearly winning and avoidable
+
+--------------------------------------------------
+5.2. HEAVY_PENALTY
+--------------------------------------------------
+
+HEAVY_PENALTY, not always reject:
+
+- pointless queen move
+- pointless rook move
+- early queen move
+- knight repeat
+- king pawn weakening
+- weak pawn push
+- no clear purpose
+- overprotect fake threat
+- slight pawn loss
+- opening style mistake
+
+Reason:
+
+Style/education mistakes should be avoided,
+but in bad positions they may be the least bad move.
+
+==================================================
+6. REJECTION REASONS AND PURPOSE TAGS
+==================================================
+
+Every rejected move should have a reason when possible.
+
+Format suggestion:
+
+{
+  move: "Nxe5",
+  rejected: true,
+  reason: "BAD_CAPTURE_SEE_NEGATIVE"
+}
+
+--------------------------------------------------
+6.1. REJECTION / DEBUG REASONS
+--------------------------------------------------
+
+Use rejection/debug reasons:
+
+ALLOWS_MATE_IN_ONE
+HANGS_QUEEN
+HANGS_ROOK
+HANGS_MINOR_PIECE
+BAD_CAPTURE_SEE_NEGATIVE
+IGNORES_DIRECT_RECAPTURE
+IGNORES_CHECK
+IGNORES_MATE_THREAT
+IGNORES_MATERIAL_EMERGENCY
+POINTLESS_QUEEN_MOVE
+POINTLESS_ROOK_MOVE
+POINTLESS_KNIGHT_REPEAT
+KING_PAWN_WEAKENING
+STALEMATE_RISK
+TRADE_TO_DRAW_WHEN_WINNING
+TRADE_BAD_WHEN_BEHIND
+NO_CLEAR_PURPOSE
+OVERPROTECT_FAKE_THREAT
+OPENING_REPERTOIRE_VIOLATION
+ALLOWS_FORK
+ALLOWS_SKEWER
+ALLOWS_DISCOVERED_ATTACK
+BAD_CHECK_RESPONSE
+BAD_BLOCK_CHECK
+BAD_KING_MOVE
+MISSES_WINNING_MATE
+MISSES_FREE_MATERIAL
+OVEREXTENDS_WHEN_AHEAD
+PERPETUAL_RISK
+INSUFFICIENT_MATERIAL_DRAW_RISK
+ALL_MOVES_BAD_FALLBACK
+
+--------------------------------------------------
+6.2. PURPOSE TAGS
+--------------------------------------------------
+
+Each selected move should have at least one purpose tag:
+
+CHECKMATE
+STOP_MATE
+CHECK_RESPONSE
+WIN_MATERIAL
+SAFE_RECAPTURE
+DEFEND_MATERIAL
+DEVELOP
+CASTLE
+CONTROL_CENTER
+IMPROVE_KING_SAFETY
+ATTACK_WEAKNESS
+CREATE_SAFE_THREAT
+TRADE_WHEN_AHEAD
+KEEP_PIECES_WHEN_BEHIND
+ROOK_PLAN
+ENDGAME_PLAN
+DRAW_DEFENSE
+SURVIVAL
+
+==================================================
+7. RISK BUDGET BY PHASE
+==================================================
+
+Bee 3 risk budget depends on game phase.
+
+--------------------------------------------------
+7.1. OPENING
+--------------------------------------------------
+
+Opening risk tolerance is very low.
+
+Priorities:
+
+- center
+- development
+- castling
+- no queen adventure
+- no knight repeat without reason
+- no rook move before file/target exists
+- no tricky gambit
+- no unsound trap
+
+--------------------------------------------------
+7.2. MIDDLEGAME
+--------------------------------------------------
+
+Middlegame allows more active play, but only after safety.
+
+Allowed:
+
+- 2-ply tactic if material-safe
+- pressure if king/material safe
+- weak target attack
+- rook planning if development is sufficient
+
+Forbidden:
+
+- attack while own pieces are hanging
+- pressure that opens own king
+- tactic that fails SEE
+- active move that ignores mate threat
+
+--------------------------------------------------
+7.3. ENDGAME
+--------------------------------------------------
+
+Endgame priorities:
+
+- king activity
+- passed pawn
+- rook technique
+- stop opponent passed pawn
+- avoid stalemate when winning
+- seek draw when losing
+- avoid perpetual when ahead
+- avoid trade into draw when ahead
+
+==================================================
+8. OPPONENT MODEL
+==================================================
+
+Bee 3 assumes students may:
+
+- leave pieces undefended
+- ignore recapture
+- miss mate-in-1
+- push pawns weakening king
+- move queen too early
+- over-attack without development
+- trade badly when behind/ahead
+- greedily eat pawns
+- miss fork/pin/skewer
+
+But:
+
+Bee 3 may punish mistakes.
+Bee 3 may not rely on the opponent missing an obvious reply.
+
+==================================================
+9. ANTI-ENGINE BEHAVIOR
+==================================================
+
+Bee 3 is not an engine clone.
+
+Bee 3 should avoid:
+
+- quiet prophylactic moves that students cannot understand
+- pawn sacrifice with unclear compensation
+- tablebase-like only moves if not necessary
+- deep tactics beyond 2-ply
+- unnatural king walks
+- repeated waiting moves
+- moves with no explainable educational purpose
+
+Rule:
+
+Every chosen move should have at least one simple explanation when possible.
+
+Examples:
+
+- "Ăn quân miễn phí."
+- "Chặn mate."
+- "Phát triển Mã và kiểm soát trung tâm."
+- "Đổi Hậu vì đang hơn quân."
+- "Đưa Xe vào file mở."
+- "Bảo vệ quân đang bị tấn công."
+- "Chọn nước sống sót tốt nhất vì mọi nước đều xấu."
+
+==================================================
+10. VALID MOVE PURPOSES
+==================================================
+
+A valid move purpose includes:
+
+- checkmate
+- stop checkmate
+- respond to check
+- win material safely
+- recapture safely
+- defend attacked material
+- develop piece
+- castle / improve king safety
+- control center
+- improve worst piece
+- attack real weakness
+- create safe 1-ply/2-ply threat
+- trade correctly based on advantage
+- support passed pawn
+- stop opponent passed pawn
+- avoid draw when winning
+- seek draw when losing
+- survival when all moves are bad
+
+A move without purpose is not selected unless all alternatives are worse.
+
+==================================================
+11. BLUNDER / SUBOPTIMALITY POLICY
+==================================================
+
+Bee 3 target: 1500–1700 educational strength.
+
+Bee 3 may:
+
+- choose a simple plan instead of engine-best
+- miss tactics deeper than 2-ply
+- not convert advantage in the fastest way
+- miss difficult defensive resources
+- play endgames imperfectly compared to engine/tablebase
+
+Bee 3 must never:
+
+- hang material
+- miss mate-in-1
+- allow mate-in-1 if preventable
+- make SEE-losing capture
+- ignore direct recapture
+- stalemate when clearly winning
+- play a move with no purpose if a purposeful move exists
+
+Bee 3 may be less sharp than an engine.
+Bee 3 must not be weak at the foundation.
+
+==================================================
+12. DRAW RULES – REQUIRED NOW VS HOOK LATER
+==================================================
+
+--------------------------------------------------
+12.1. REQUIRED NOW
+--------------------------------------------------
+
+Bee 3 should support or use existing chess.js support for:
+
+- stalemate detection
+- avoid stalemate when clearly winning
+- insufficient material detection if chess.js supports it
+- avoid obvious perpetual check when ahead
+- avoid trade into dead draw when ahead if easily detectable
+- seek trade/draw when behind if clearly losing
+
+--------------------------------------------------
+12.2. HOOK FOR LATER
+--------------------------------------------------
+
+Create clean hooks / TODO comments for:
+
+- threefold repetition full tracking
+- 50-move rule full tracking
+- wrong rook pawn + wrong bishop
+- basic opposition
+- king outside square of pawn
+- tablebase-like exceptions
+
+CodeX must not fake incomplete draw logic.
+
+If infrastructure is missing, create clean hooks and mark TODO.
+
+==================================================
+13. OPENING REPERTOIRE BOUNDARY
+==================================================
+
+Bee 3 opening repertoire:
+
+White:
+
+- Italian Game
+- Ruy Lopez basic
+- simple Queen's Pawn setup
+
+Black vs e4:
+
+- e5 classical development
+- Italian basic response
+- Ruy Lopez basic response
+
+Black vs d4:
+
+- d5
+- Nf6
+- e6/c6 simple structure
+
+Forbidden:
+
+- tricky gambits
+- unsound traps
+- early queen attacks
+- memorized trap lines
+- Alekhine-style provoke
+- Scandinavian-style provoke unless explicitly part of later curriculum
+
+Opening book/repertoire is advisory.
+
+It must never override:
+
+- check response
+- own mate-in-1
+- opponent mate-in-1 defense
+- direct recapture
+- safe high-value capture
+- material emergency
+- BOSS_SAFE
+
+If out of book:
+
+Bee 3 follows opening principles, not random moves.
+
+==================================================
+14. MODULE PRIORITY CONFLICT RESOLUTION
+==================================================
+
+If modules disagree:
+
+1. Hard safety wins.
+2. Check/mate rules win.
+3. Material emergency wins.
+4. Direct safe material gain wins.
+5. King safety wins.
+6. Opening/development wins while in opening and no emergency exists.
+7. Rook/tactical/strategic plans compete only after safety is clear.
+8. Endgame/draw awareness overrides style if result is at risk.
+9. Tie-break chooses simplest safe educational move.
+
+Examples:
+
+- Rook planning cannot override material emergency.
+- Tactical punisher cannot override SEE loss.
+- Opening repertoire cannot override direct recapture.
+- Unit stewardship cannot override mate-in-1.
+- Advantage conversion cannot ignore opponent mate threat.
+
+==================================================
+15. WHEN ALL MOVES ARE BAD
+==================================================
+
+If all moves are bad, Bee 3 must choose the least losing move.
+
+Priority:
+
+1. Avoid immediate mate.
+2. Avoid losing Queen if possible.
+3. Avoid losing Rook if possible.
+4. Keep checking chances.
+5. Keep drawing chances.
+6. Prefer active defense over passive collapse.
+7. Choose the move that maximizes survival and practical resistance.
+
+Do not random.
+
+Tag such move as:
+
+SURVIVAL
+ALL_MOVES_BAD_FALLBACK
+
+==================================================
+16. DETERMINISM
+==================================================
+
+Bee 3 must be deterministic.
+
+Same FEN + same side to move + same configuration must produce:
+
+- same selected move
+- same top rejection reasons
+- same purpose tag
+
+No random.
+
+If multiple moves are equal, tie-break deterministically:
+
+1. lower tactical risk
+2. better material safety
+3. better king safety
+4. simpler educational purpose
+5. stable deterministic move ordering as final fallback only
+
+==================================================
+17. TEST GAUNTLET FORMAT
+==================================================
+
+Each test should use this format:
+
+Test ID:
+FEN:
+Side to move:
+Expected:
+Forbidden:
+Reason:
+Acceptable moves:
+Hard/Soft:
+
+Example:
+
+Test ID: B3-L1-SEE-001
+FEN: ...
+Side to move: Black
+Expected:
+- Must not play Nxd4
+Forbidden:
+- Nxd4
+Reason:
+- SEE-losing capture after recapture sequence
+Acceptable:
+- Bd7
+- Re8
+- a6
+Hard/Soft:
+- Hard
+
+==================================================
+18. PASS THRESHOLD
+==================================================
+
+Bee 3 pass condition:
+
+Hard safety tests:
+- 100% pass
+
+Bee 2 regression hard tests:
+- 100% pass
+
+Educational best-move tests:
+- >= 85% pass
+
+Conversion/endgame tests:
+- >= 75% pass
+
+Soft style tests:
+- >= 70% pass
+
+Bee 3 fails immediately if:
+
+- hangs Queen/Rook/minor piece for free
+- misses mate-in-1
+- allows mate-in-1 when preventable
+- makes serious SEE-losing capture
+- stalemates when clearly winning
+- breaks Bee 2 hard regression test
+
+==================================================
+19. FINAL CODEX RULES
+==================================================
+
+CodeX must not code Bee 3 until explicitly instructed.
+
+When later implementing Bee 3:
+
+- Read `bee3-boss-spec.txt`.
+- Read `bee3-implementation-contract.txt`.
+- Do not modify Bee 1.
+- Do not modify Bee 2 unless explicitly requested.
+- Bee 3 must be a separate bot file:
+  `bots/bee3.js`
+
+Do not add:
+
+- sacrifice
+- compensation
+- random fallback
+- engine-like deep search
+- Stockfish
+- UI changes unless requested
+
+==================================================
+20. BOARD VISION / ATTACK-DEFENSE MAP CONTRACT
+==================================================
+
+Board Vision là lớp nền của Bee 3.
+
+Bee 3 phải có "mắt" trước khi có "kế hoạch".
+Mọi safety/material decision phải dựa trên quan sát bàn cờ trực tiếp, không dựa vào cảm giác hoặc đếm quân thô.
+
+--------------------------------------------------
+20.1. REQUIRED VISION
+--------------------------------------------------
+
+Bee 3 phải quan sát được:
+
+- hàng ngang
+- hàng dọc
+- đường chéo
+- 8 ô chân Mã
+- chốt ăn chéo
+- Vua quanh 8 ô
+
+Với mỗi ô/quân quan trọng, Bee 3 phải xác định được:
+
+- attackers
+- defenders
+- line attackers
+- knight attackers
+- pawn attackers
+- king adjacency
+- hanging pieces
+- weak squares
+- real recapture
+- fake recapture
+
+Implementation functions may include:
+
+- getSquareAttackers()
+- getSquareDefenders()
+- getLineAttackersToSquare()
+- getKnightAttackersToSquare()
+- getPawnAttackersToSquare()
+- countEffectiveDefenders()
+- evaluateDefenderQuality()
+- evaluateRecaptureSafety()
+- buildBoardVisionMap()
+
+Tên function có thể thay đổi, nhưng vai trò phải tồn tại.
+
+--------------------------------------------------
+20.2. NO RAW ATTACKER/DEFENDER COUNT
+--------------------------------------------------
+
+Bee 3 không được kết luận:
+
+"2 attackers = 2 defenders nên an toàn."
+
+Attacker/defender phải được đánh giá theo chất lượng:
+
+- giá trị attacker
+- giá trị defender
+- defender có bị pin không
+- defender có overload không
+- defender có phải King không
+- King có thật sự ăn được không
+- Queen/Rook defender có đang bảo vệ nhiệm vụ quan trọng hơn không
+- recapture bằng Queen/Rook có bị ăn tiếp không
+- exchange balance sau recapture có lỗ rõ không
+
+King defender chỉ hợp lệ nếu King có thể ăn/giữ ô đó mà không đi vào check.
+
+Queen/Rook defender không được tính như defender đầy đủ nếu chúng bị overload hoặc nếu recapture làm mất material rõ.
+
+--------------------------------------------------
+20.3. QUEEN/ROOK RECAPTURE SAFETY
+--------------------------------------------------
+
+Queen/Rook recapture là vùng nguy hiểm cao.
+
+Nếu Hậu hoặc Xe recapture lên một ô:
+
+- apply move tạm thời bằng move/undo
+- kiểm tra mọi opponent attackers lên destination square
+- kiểm tra pawn/knight/bishop/rook/queen/king attack
+- kiểm tra effective defenders
+- kiểm tra exchange balance
+- nếu Hậu/Xe bị ăn ngay mà không bù đủ material, reject
+
+Ví dụ bắt buộc:
+
+Nếu Queen recapture on d5 nhưng Bishop c4 có thể Bxd5, move đó không phải recapture sạch.
+
+Reason phù hợp:
+
+- HANGS_QUEEN_AFTER_MOVE
+- HANGS_ROOK_AFTER_MOVE
+- MOVES_QUEEN_INTO_KNIGHT_ATTACK
+- BAD_RECAPTURE_WITH_QUEEN
+- BAD_EXCHANGE_BALANCE
+- BAD_CAPTURE_SEE_NEGATIVE
+
+Mate-in-1 vẫn override vì ván cờ kết thúc ngay.
+Nếu không phải mate-in-1, recapture phải qua material safety.
+
+--------------------------------------------------
+20.4. CONSERVATIVE COUNTERPUNCH STYLE
+--------------------------------------------------
+
+Bee 3 phải chơi chắc trước, phản công sau.
+
+Bee 3 không được:
+
+- chủ động sacrifice
+- chơi gambit mơ hồ
+- attack ảo
+- chọn plan đẹp khi material/safety chưa ổn
+- dùng pressure để bù cho treo quân
+
+Bee 3 phải:
+
+- giữ quân
+- giữ Vua
+- recapture khi an toàn
+- ăn free material rõ
+- xử lý material emergency
+- trừng phạt ngay khi học sinh treo quân hoặc sai tactic rõ
+
+Bee 3 có thể bị đánh bại bởi tactic thật, mating net thật, sacrifice có tính toán, hoặc kế hoạch thật.
+Bee 3 không được bị đánh bại vì không thấy một đòn ăn quân trực tiếp.
+
+--------------------------------------------------
+20.5. FUTURE SHARED BEE VISION CORE
+--------------------------------------------------
+
+Board Vision là lỗi nền, không phải riêng Bee 3.
+
+Future note:
+
+Board Vision nên được tách thành shared core để Bee 1/Bee 2/Bee 3 cùng dùng.
+
+Các bot Bee cấp thấp có thể dùng phiên bản đơn giản hơn, nhưng không bot Bee nào nên thua vì:
+
+- treo Hậu
+- treo Xe
+- treo quân nhẹ
+- đi Hậu vào chân Mã
+- recapture bằng Hậu vào đường Tượng/Xe
+- đếm defender sai
+- coi King là defender khi King không thể ăn
+
+--------------------------------------------------
+20.6. FUTURE MATE VISION NOTE
+--------------------------------------------------
+
+Sau khi Board Vision ổn định, Bee series có thể mở rộng Mate Vision:
+
+- mate-in-1
+- mate-in-2 cơ bản
+- mating net đơn giản
+
+Mate Vision không được override LOWER LEVEL OVERRIDES HIGHER LEVEL.
+
+Mate Vision chỉ được vượt material safety khi move đó thật sự checkmate và ván cờ kết thúc ngay.
+
+==================================================
+END OF BEE 3 IMPLEMENTATION CONTRACT
+==================================================

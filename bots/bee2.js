@@ -29,6 +29,41 @@
     return piece ? PIECE_VALUES[piece.type] || 0 : 0;
   }
 
+  let activeBee2VisionCache = null;
+
+  function getBee2Root() {
+    if (typeof window !== "undefined") {
+      return window;
+    }
+
+    if (typeof self !== "undefined") {
+      return self;
+    }
+
+    return typeof globalThis !== "undefined" ? globalThis : {};
+  }
+
+  function getBee2Vision() {
+    const root = getBee2Root();
+    return root && root.BeeVision ? root.BeeVision : null;
+  }
+
+  function createBee2VisionCache(game) {
+    return {
+      fen: game && typeof game.fen === "function" ? game.fen() : "",
+      squareAttackers: new Map(),
+      squareDefenders: new Map(),
+      lineAttackers: new Map(),
+      knightAttackers: new Map(),
+      pawnAttackers: new Map(),
+      kingAttackers: new Map(),
+      stats: {
+        hits: 0,
+        misses: 0
+      }
+    };
+  }
+
   function getMaterialForColor(game, color) {
     return game.board().reduce(function (total, row) {
       return total + row.reduce(function (rowTotal, piece) {
@@ -306,6 +341,11 @@
   }
 
   function isSquareAttackedByColor(game, square, color) {
+    const vision = getBee2Vision();
+    if (vision && typeof vision.getSquareAttackers === "function") {
+      return vision.getSquareAttackers(game, square, color, activeBee2VisionCache).length > 0;
+    }
+
     return game.board().some(function (row, rowIndex) {
       return row.some(function (piece, colIndex) {
         return Boolean(piece && piece.color === color && doesPieceAttackSquare(game, boardArraySquare(rowIndex, colIndex), square));
@@ -1265,6 +1305,17 @@
   }
 
   function getAttackersOfSquare(game, square, color) {
+    const vision = getBee2Vision();
+    if (vision && typeof vision.getSquareAttackers === "function") {
+      return vision.getSquareAttackers(game, square, color, activeBee2VisionCache).map(function (attacker) {
+        return {
+          square: attacker.square,
+          piece: attacker.piece,
+          value: attacker.value || getPieceValue(attacker.piece)
+        };
+      });
+    }
+
     const attackers = [];
 
     game.board().forEach(function (row, rowIndex) {
@@ -1314,10 +1365,6 @@
   }
 
   function callsPublicBee1Reject(game, move, botColor) {
-    if (window.Bee1Bot && typeof window.Bee1Bot.rejectMoveIfViolatesLowerLevels === "function") {
-      return window.Bee1Bot.rejectMoveIfViolatesLowerLevels(game, move, botColor);
-    }
-
     if (window.BotLevels && typeof window.BotLevels.rejectMoveIfViolatesLowerLevels === "function") {
       return window.BotLevels.rejectMoveIfViolatesLowerLevels(game, move, botColor);
     }
@@ -1436,9 +1483,20 @@
   }
 
   function rejectMoveIfViolatesLowerLevels(game, move, botColor) {
-    const publicBee1Reject = callsPublicBee1Reject(game, move, botColor);
+    if (!move) {
+      return true;
+    }
 
+    const publicBee1Reject = callsPublicBee1Reject(game, move, botColor);
     if (publicBee1Reject === true) {
+      return true;
+    }
+
+    if (isMoveCheckmateAfter(game, move)) {
+      return false;
+    }
+
+    if (moveAllowsOpponentMateInOne(game, move, botColor)) {
       return true;
     }
 
@@ -1453,29 +1511,24 @@
     }
 
     const movingPieceValue = PIECE_VALUES[move.piece] || 0;
-    const capturedValue = PIECE_VALUES[move.captured] || 0;
+    const exchange = evaluateBee2SimpleExchangeAfterMove(game, move, botColor);
     const appliedMove = playMove(game, move);
 
     if (!appliedMove) {
       return true;
     }
 
-    const opponentColor = oppositeColor(botColor);
-    const attackers = getAttackersOfSquare(game, move.to, opponentColor);
-    const cheaperAttackers = attackers.filter(function (attacker) {
-      return attacker.value < movingPieceValue;
-    });
     let reject = false;
 
     if (isBotKingAttacked(game, botColor)) {
       reject = true;
     }
 
-    if (!reject && move.captured && capturedValue < movingPieceValue && cheaperAttackers.length) {
+    if (!reject && move.captured && !exchange.safe) {
       reject = true;
     }
 
-    if (!reject && movingPieceValue >= PIECE_VALUES.n && cheaperAttackers.length) {
+    if (!reject && movingPieceValue >= PIECE_VALUES.n && !exchange.safe) {
       reject = true;
     }
 
@@ -1543,6 +1596,32 @@
     }
 
     return null;
+  }
+
+  function isMoveCheckmateAfter(game, move) {
+    const appliedMove = playMove(game, move);
+    if (!appliedMove) {
+      return false;
+    }
+
+    const checkmate = isGameCheckmate(game);
+    game.undo();
+    return checkmate;
+  }
+
+  function moveAllowsOpponentMateInOne(game, move, botColor) {
+    if (isMoveCheckmateAfter(game, move)) {
+      return false;
+    }
+
+    const appliedMove = playMove(game, move);
+    if (!appliedMove) {
+      return true;
+    }
+
+    const allowsMate = opponentHasImmediateMateMove(game, botColor);
+    game.undo();
+    return allowsMate;
   }
 
   function getCheckingPieces(game, botColor) {
@@ -1661,6 +1740,11 @@
         return null;
       }
 
+      const allowsMate = moveAllowsOpponentMateInOne(game, move, botColor);
+      if (allowsMate) {
+        score -= 10000;
+      }
+
       if (responseType === "CAPTURE_CHECKER") {
         score += 3000;
       } else if (responseType === "BLOCK_CHECK") {
@@ -1685,6 +1769,7 @@
         move: move,
         responseType: responseType,
         materialSafetyScore: materialSafetyScore,
+        allowsMate: allowsMate,
         score: score
       };
     }).filter(Boolean).sort(function (a, b) {
@@ -1696,7 +1781,7 @@
     }
 
     const saferResponses = scoredResponses.filter(function (item) {
-      return !(item.responseType === "BLOCK_CHECK" && item.materialSafetyScore <= -900);
+      return !item.allowsMate && !(item.responseType === "BLOCK_CHECK" && item.materialSafetyScore <= -900);
     });
 
     return (saferResponses.length ? saferResponses[0] : scoredResponses[0]).move;
@@ -1712,36 +1797,109 @@
     return captures.length ? captures[0] : null;
   }
 
+  function getMoveSortKey(move) {
+    return [move && move.from || "", move && move.to || "", move && move.promotion || "", move && move.san || ""].join("|");
+  }
+
+  function findLegalCapturesToSquare(game, square) {
+    return game.moves({ verbose: true }).filter(function (move) {
+      return move.to === square && Boolean(move.captured);
+    }).sort(function (a, b) {
+      const valueDiff = (PIECE_VALUES[a.piece] || 0) - (PIECE_VALUES[b.piece] || 0);
+      if (valueDiff) {
+        return valueDiff;
+      }
+      return getMoveSortKey(a) < getMoveSortKey(b) ? -1 : 1;
+    });
+  }
+
+  function evaluateBee2SimpleExchangeAfterMove(game, move, botColor) {
+    if (!move) {
+      return {
+        safe: false,
+        score: -999999,
+        reason: "NO_MOVE"
+      };
+    }
+
+    const capturedValue = PIECE_VALUES[move.captured] || 0;
+    const movingValue = PIECE_VALUES[move.piece] || 0;
+    const appliedMove = playMove(game, move);
+
+    if (!appliedMove) {
+      return {
+        safe: false,
+        score: -999999,
+        reason: "ILLEGAL_MOVE"
+      };
+    }
+
+    try {
+      if (isGameCheckmate(game)) {
+        return {
+          safe: true,
+          score: 999999,
+          reason: "CHECKMATE"
+        };
+      }
+
+      const movedPiece = game.get(move.to);
+      if (!movedPiece || movedPiece.color !== botColor || movedPiece.type === "k") {
+        return {
+          safe: true,
+          score: capturedValue,
+          reason: "NO_MOVED_PIECE_RISK"
+        };
+      }
+
+      const opponentCaptures = findLegalCapturesToSquare(game, move.to);
+      if (!opponentCaptures.length) {
+        return {
+          safe: true,
+          score: capturedValue,
+          reason: "NO_OPPONENT_RECAPTURE"
+        };
+      }
+
+      let worstScore = capturedValue;
+      let worstReason = "";
+      opponentCaptures.forEach(function (reply) {
+        const attackerValue = PIECE_VALUES[reply.piece] || 0;
+        let score = capturedValue - movingValue;
+        const replyApplied = playMove(game, reply);
+
+        if (replyApplied) {
+          try {
+            if (findLegalCapturesToSquare(game, move.to).length) {
+              score += attackerValue;
+            }
+          } finally {
+            game.undo();
+          }
+        }
+
+        if (score < worstScore) {
+          worstScore = score;
+          worstReason = "OPPONENT_RECAPTURE";
+        }
+      });
+
+      return {
+        safe: worstScore >= -40,
+        score: worstScore,
+        reason: worstScore >= -40 ? "EXCHANGE_OK" : worstReason || "BAD_EXCHANGE"
+      };
+    } finally {
+      game.undo();
+    }
+  }
+
   function evaluateCaptureSequenceLite(game, move, botColor) {
     if (!move || !move.captured) {
       return 0;
     }
 
-    const beforeBalance = getMaterialBalance(game, botColor);
-    const targetSquare = move.to;
-    const appliedMoves = [];
-    let currentMove = move;
-    let netScore = 0;
-
-    for (let depth = 0; depth < 6 && currentMove; depth++) {
-      const appliedMove = playMove(game, currentMove);
-
-      if (!appliedMove) {
-        break;
-      }
-
-      appliedMoves.push(appliedMove);
-      currentMove = getCheapestCaptureToSquare(game, targetSquare);
-    }
-
-    netScore = getMaterialBalance(game, botColor) - beforeBalance;
-
-    while (appliedMoves.length) {
-      game.undo();
-      appliedMoves.pop();
-    }
-
-    return netScore;
+    return evaluateBee2SimpleExchangeAfterMove(game, move, botColor).score;
   }
 
   function captureSequenceLosesMaterialClearly(game, move, botColor) {
@@ -3195,49 +3353,65 @@
     return score;
   }
 
-  function chooseBee1FallbackMove() {
-    if (typeof window.chooseBee1BotMove === "function") {
-      return window.chooseBee1BotMove();
+  function compareScoredBee2Moves(a, b) {
+    if (a.score !== b.score) {
+      return b.score - a.score;
     }
 
-    if (window.Bee1Bot && typeof window.Bee1Bot.chooseMove === "function") {
-      return window.Bee1Bot.chooseMove();
-    }
+    return getMoveSortKey(a.move) < getMoveSortKey(b.move) ? -1 : 1;
+  }
 
-    return null;
+  function chooseLeastBadLegalBee2Move(game, botColor, legalMoves) {
+    const context = buildBee2Context(game, botColor);
+    const scoredMoves = (legalMoves || []).map(function (move) {
+      const rejected = rejectMoveIfViolatesLowerLevels(game, move, botColor);
+      return {
+        move: move,
+        score: rejected ? -900000 + evaluateBee2SimpleExchangeAfterMove(game, move, botColor).score : evaluateBee2Move(game, move, botColor, context)
+      };
+    }).sort(compareScoredBee2Moves);
+
+    return scoredMoves.length ? scoredMoves[0].move : null;
   }
 
   function chooseBee2Move(game, botColor) {
-    const context = buildBee2Context(game, botColor);
-    const candidateMoves = getBee2CandidateMoves(game, botColor);
+    activeBee2VisionCache = createBee2VisionCache(game);
+    try {
+      const context = buildBee2Context(game, botColor);
+      const legalMoves = game.turn && game.turn() === botColor ? game.moves({ verbose: true }) : [];
+      const candidateMoves = getBee2CandidateMoves(game, botColor);
 
-    if (!candidateMoves.length) {
-      return null;
-    }
+      if (!legalMoves.length) {
+        return null;
+      }
 
-    const checkResponseMove = chooseBestCheckResponse(game, botColor, candidateMoves);
+      const checkResponseMove = chooseBestCheckResponse(game, botColor, legalMoves);
 
-    if (checkResponseMove) {
-      return checkResponseMove;
-    }
+      if (checkResponseMove) {
+        return checkResponseMove;
+      }
 
-    const immediateMateMove = findImmediateMateMove(game, candidateMoves);
+      const immediateMateMove = findImmediateMateMove(game, legalMoves);
 
-    if (immediateMateMove) {
-      return immediateMateMove;
-    }
+      if (immediateMateMove) {
+        return immediateMateMove;
+      }
 
-    const directRecaptureMove = findDirectRecaptureMove(game, botColor, candidateMoves);
+      if (!candidateMoves.length) {
+        return chooseLeastBadLegalBee2Move(game, botColor, legalMoves);
+      }
 
-    if (directRecaptureMove) {
-      return directRecaptureMove;
-    }
+      const directRecaptureMove = findDirectRecaptureMove(game, botColor, candidateMoves);
 
-    const recoveryMove = findImmediateMaterialRecoveryMove(game, botColor, candidateMoves);
+      if (directRecaptureMove) {
+        return directRecaptureMove;
+      }
 
-    if (recoveryMove) {
-      return recoveryMove;
-    }
+      const recoveryMove = findImmediateMaterialRecoveryMove(game, botColor, candidateMoves);
+
+      if (recoveryMove) {
+        return recoveryMove;
+      }
 
     if (isRuyLopezPosition(game, botColor) || isRuyLopezBa4Continuation(game, botColor)) {
       const strictRuyMove = chooseStrictIchessOpeningMove(game, botColor, candidateMoves);
@@ -3284,9 +3458,7 @@
         move: move,
         score: evaluateBee2Move(game, move, botColor, context)
       };
-    }).sort(function (a, b) {
-      return b.score - a.score;
-    });
+    }).sort(compareScoredBee2Moves);
     const scoredMoves = allScoredMoves.filter(function (item) {
       return item.score > 0;
     });
@@ -3299,13 +3471,10 @@
       return allScoredMoves[0].move;
     }
 
-    const bee1Move = chooseBee1FallbackMove();
-
-    if (bee1Move) {
-      return bee1Move;
+    return chooseLeastBadLegalBee2Move(game, botColor, legalMoves);
+    } finally {
+      activeBee2VisionCache = null;
     }
-
-    return null;
   }
 
   function classifyMaterialAdvantage(game, botColor) {
@@ -3705,6 +3874,9 @@
     evaluateCheckResponseMaterialSafety: evaluateCheckResponseMaterialSafety,
     chooseBestCheckResponse: chooseBestCheckResponse,
     getCheapestCaptureToSquare: getCheapestCaptureToSquare,
+    createBee2VisionCache: createBee2VisionCache,
+    evaluateBee2SimpleExchangeAfterMove: evaluateBee2SimpleExchangeAfterMove,
+    moveAllowsOpponentMateInOne: moveAllowsOpponentMateInOne,
     evaluateCaptureSequenceLite: evaluateCaptureSequenceLite,
     captureSequenceLosesMaterialClearly: captureSequenceLosesMaterialClearly,
     findDirectRecaptureMove: findDirectRecaptureMove,

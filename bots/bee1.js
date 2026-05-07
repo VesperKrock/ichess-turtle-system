@@ -75,6 +75,41 @@
     return PIECE_VALUES[typeof pieceOrType === "string" ? pieceOrType : pieceOrType.type] || 0;
   }
 
+  let activeBee1VisionCache = null;
+
+  function getBee1Root() {
+    if (typeof window !== "undefined") {
+      return window;
+    }
+
+    if (typeof self !== "undefined") {
+      return self;
+    }
+
+    return typeof globalThis !== "undefined" ? globalThis : {};
+  }
+
+  function getBee1Vision() {
+    const root = getBee1Root();
+    return root && root.BeeVision ? root.BeeVision : null;
+  }
+
+  function createBee1VisionCache(game) {
+    return {
+      fen: game && typeof game.fen === "function" ? game.fen() : "",
+      squareAttackers: new Map(),
+      squareDefenders: new Map(),
+      lineAttackers: new Map(),
+      knightAttackers: new Map(),
+      pawnAttackers: new Map(),
+      kingAttackers: new Map(),
+      stats: {
+        hits: 0,
+        misses: 0
+      }
+    };
+  }
+
   function boardArraySquare(row, col) {
     return "abcdefgh"[col] + (8 - row);
   }
@@ -190,12 +225,34 @@
   }
 
   function getAttackersOfSquare(game, square, byColor) {
+    const vision = getBee1Vision();
+    if (vision && typeof vision.getSquareAttackers === "function") {
+      return vision.getSquareAttackers(game, square, byColor, activeBee1VisionCache).map(function (attacker) {
+        return {
+          square: attacker.square,
+          piece: attacker.piece
+        };
+      });
+    }
+
     return getPieces(game, byColor).filter(function (item) {
       return doesPieceAttackSquare(game, item.square, square);
     });
   }
 
   function getDefendersOfSquare(game, square, color) {
+    const vision = getBee1Vision();
+    if (vision && typeof vision.getSquareDefenders === "function") {
+      return vision.getSquareDefenders(game, square, color, activeBee1VisionCache).map(function (defender) {
+        return {
+          square: defender.square,
+          piece: defender.piece
+        };
+      }).filter(function (item) {
+        return item.square !== square;
+      });
+    }
+
     return getAttackersOfSquare(game, square, color).filter(function (item) {
       return item.square !== square;
     });
@@ -361,65 +418,128 @@
     }, 0);
   }
 
+  function findLegalCapturesToSquare(game, square) {
+    return game.moves({ verbose: true }).filter(function (candidate) {
+      return candidate.to === square && Boolean(candidate.captured);
+    }).sort(function (a, b) {
+      const valueDiff = getPieceValue(a.piece) - getPieceValue(b.piece);
+      if (valueDiff) {
+        return valueDiff;
+      }
+
+      return getMoveSortKey(a) < getMoveSortKey(b) ? -1 : 1;
+    });
+  }
+
+  function getMoveSortKey(move) {
+    return [move && move.from || "", move && move.to || "", move && move.promotion || "", move && move.san || ""].join("|");
+  }
+
+  function evaluateSimpleExchangeAfterMove(game, move, color) {
+    if (!move) {
+      return {
+        safe: false,
+        score: -99999,
+        reason: "NO_MOVE"
+      };
+    }
+
+    if (isMateMove(move)) {
+      return {
+        safe: true,
+        score: 99999,
+        reason: "CHECKMATE"
+      };
+    }
+
+    const capturedValue = getPieceValue(move.captured);
+    const movingValue = getPieceValue(move.piece);
+    let applied = null;
+
+    try {
+      applied = game.move({
+        from: move.from,
+        to: move.to,
+        promotion: move.promotion || "q"
+      });
+
+      if (!applied) {
+        return {
+          safe: false,
+          score: -99999,
+          reason: "ILLEGAL_MOVE"
+        };
+      }
+
+      const movedPiece = game.get(move.to);
+      if (!movedPiece || movedPiece.color !== color || movedPiece.type === "k") {
+        return {
+          safe: true,
+          score: capturedValue,
+          reason: "NO_MOVED_PIECE_RISK"
+        };
+      }
+
+      const opponentCaptures = findLegalCapturesToSquare(game, move.to);
+      if (!opponentCaptures.length) {
+        return {
+          safe: true,
+          score: capturedValue,
+          reason: "NO_OPPONENT_CAPTURE"
+        };
+      }
+
+      let worstScore = capturedValue;
+      let worstReason = "";
+      opponentCaptures.forEach(function (reply) {
+        const attackerValue = getPieceValue(reply.piece);
+        let score = capturedValue - movingValue;
+        const replyApplied = game.move({
+          from: reply.from,
+          to: reply.to,
+          promotion: reply.promotion || "q"
+        });
+
+        if (replyApplied) {
+          try {
+            const recaptures = findLegalCapturesToSquare(game, move.to);
+            if (recaptures.length) {
+              score += attackerValue;
+            }
+          } finally {
+            game.undo();
+          }
+        }
+
+        if (score < worstScore) {
+          worstScore = score;
+          worstReason = "OPPONENT_RECAPTURE";
+        }
+      });
+
+      const safe = worstScore >= -40;
+      return {
+        safe: safe,
+        score: worstScore,
+        reason: safe ? "EXCHANGE_OK" : worstReason || "BAD_EXCHANGE"
+      };
+    } finally {
+      if (applied) {
+        game.undo();
+      }
+    }
+  }
+
   function getStaticExchangeScore(game, move, color) {
     if (!move.captured) {
       return 0;
     }
 
-    const movingValue = getPieceValue(move.piece);
-    const capturedValue = getPieceValue(move.captured);
-    let score = capturedValue;
-
-    game.move({
-      from: move.from,
-      to: move.to,
-      promotion: move.promotion || "q"
-    });
-
-    const movedPiece = game.get(move.to);
-    const attackers = getAttackersOfSquare(game, move.to, oppositeColor(color));
-    const defenders = getDefendersOfSquare(game, move.to, color);
-
-    if (movedPiece && attackers.length) {
-      const cheapestAttacker = Math.min.apply(null, attackers.map(function (attacker) {
-        return getPieceValue(attacker.piece);
-      }));
-      const defendedDiscount = defenders.length ? Math.min(movingValue * 0.35, getPieceValue(defenders[0].piece) * 0.25) : 0;
-      score -= movingValue - defendedDiscount;
-
-      if (cheapestAttacker <= movingValue) {
-        score -= Math.min(120, movingValue - cheapestAttacker);
-      }
-    }
-
-    game.undo();
-
-    return score;
+    return evaluateSimpleExchangeAfterMove(game, move, color).score;
   }
 
   function isSafeDestinationAfterMove(game, move, color) {
-    game.move({
-      from: move.from,
-      to: move.to,
-      promotion: move.promotion || "q"
-    });
-
-    const movedPiece = game.get(move.to);
-
-    if (!movedPiece || movedPiece.color !== color || movedPiece.type === "k") {
-      game.undo();
-      return true;
-    }
-
-    const attackers = getAttackersOfSquare(game, move.to, oppositeColor(color));
-    const defenders = getDefendersOfSquare(game, move.to, color);
-    const movedValue = getPieceValue(movedPiece);
-    const unsafe = attackers.length > defenders.length || attackers.some(function (attacker) {
-      return getPieceValue(attacker.piece) + 80 < movedValue;
-    });
-
-    game.undo();
-    return !unsafe;
+    return evaluateSimpleExchangeAfterMove(game, move, color).safe;
   }
 
   function isBadExchange(game, move, color) {
@@ -427,7 +547,12 @@
   }
 
   function isSafeCapture(game, move, color) {
-    return Boolean(move.captured) && getStaticExchangeScore(game, move, color) >= -20 && isSafeDestinationAfterMove(game, move, color);
+    if (!move) {
+      return false;
+    }
+
+    const exchange = evaluateSimpleExchangeAfterMove(game, move, color);
+    return Boolean(move.captured) && exchange.score >= -40 && exchange.safe;
   }
 
   function getSafeMaterialCapturePriority(game, move, color) {
@@ -505,12 +630,12 @@
       return true;
     }
 
-    const attackers = getAttackersOfSquare(game, square, oppositeColor(color));
+    const attackers = findLegalCapturesToSquare(game, square);
     const defenders = getDefendersOfSquare(game, square, color);
     const value = getPieceValue(piece);
 
     return !(attackers.length > defenders.length || attackers.some(function (attacker) {
-      return getPieceValue(attacker.piece) + 80 < value;
+      return getPieceValue(attacker.piece) + 80 < value && !defenders.length;
     }));
   }
 
@@ -1187,13 +1312,18 @@
 
     score += after - before;
 
-    if (phase === "endgame" && getMaterialBalance(game, color) <= 180) {
-      score += (Math.random() - 0.5) * 90;
-    } else {
-      score += (Math.random() - 0.5) * 4;
-    }
+    score += getMoveDeterministicTiebreak(move) * 0.01;
 
     return score;
+  }
+
+  function getMoveDeterministicTiebreak(move) {
+    const key = getMoveSortKey(move);
+    let total = 0;
+    for (let index = 0; index < key.length; index++) {
+      total += key.charCodeAt(index) * (index + 1);
+    }
+    return total % 97;
   }
 
   function enrichMoveCandidate(game, move, color, forcedEmergency) {
@@ -1228,12 +1358,25 @@
       });
       const pool = useful.length ? useful : nonRejected;
       return pool.sort(function (a, b) {
-        return b.score - a.score;
+        if (a.score !== b.score) {
+          return b.score - a.score;
+        }
+
+        return getMoveSortKey(a.move) < getMoveSortKey(b.move) ? -1 : 1;
       })[0];
     }
 
     return enrichedMoves.slice().sort(function (a, b) {
-      return (a.gate.severity || a.gate.penalty || 0) - (b.gate.severity || b.gate.penalty || 0) || b.score - a.score;
+      const safetyDiff = (a.gate.severity || a.gate.penalty || 0) - (b.gate.severity || b.gate.penalty || 0);
+      if (safetyDiff) {
+        return safetyDiff;
+      }
+
+      if (a.score !== b.score) {
+        return b.score - a.score;
+      }
+
+      return getMoveSortKey(a.move) < getMoveSortKey(b.move) ? -1 : 1;
     })[0] || null;
   }
 
@@ -1300,6 +1443,7 @@
   }
 
   function chooseMoveByLayerPriority(game, moves, color) {
+    activeBee1VisionCache = createBee1VisionCache(game);
     const emergency = detectMaterialEmergency(game, color);
     let activeMoves = moves;
 
@@ -1317,6 +1461,19 @@
 
         if (!activeMoves.length) {
           activeMoves = moves;
+        }
+      }
+    }
+
+    if (!emergency.hasEmergency && !isInCheck(game) && !moves.some(function (move) {
+      return Boolean(move.captured) || isMateMove(move);
+    })) {
+      const earlyStrictOpeningMove = chooseStrictIchessOpeningMove(game, color, moves);
+      if (earlyStrictOpeningMove) {
+        const earlyStrictCandidate = enrichMoveCandidate(game, earlyStrictOpeningMove, color, emergency);
+        if (!earlyStrictCandidate.gate.rejected) {
+          debugCandidates("strict-opening-fast", game, [earlyStrictCandidate], earlyStrictCandidate);
+          return earlyStrictOpeningMove;
         }
       }
     }
@@ -1340,6 +1497,16 @@
       return finalizeRootMove(game, enrichedMoves);
     }
 
+    const safeCaptures = enrichedMoves.filter(function (item) {
+      return !item.gate.rejected && item.move.captured && isSafeCapture(game, item.move, color) && getPieceValue(item.move.captured) >= 300;
+    });
+    if (safeCaptures.length) {
+      safeCaptures.forEach(function (item) {
+        item.score += getSafeMaterialCapturePriority(game, item.move, color);
+      });
+      return finalizeRootMove(game, safeCaptures);
+    }
+
     const safeOpeningMoves = enrichedMoves.filter(function (item) {
       return !item.gate.rejected;
     }).map(function (item) {
@@ -1350,16 +1517,6 @@
     if (strictOpeningMove) {
       debugCandidates("strict-opening", game, enrichedMoves, { move: strictOpeningMove, gate: { rejected: false } });
       return strictOpeningMove;
-    }
-
-    const safeCaptures = enrichedMoves.filter(function (item) {
-      return !item.gate.rejected && item.move.captured && isSafeCapture(game, item.move, color) && getPieceValue(item.move.captured) >= 300;
-    });
-    if (safeCaptures.length) {
-      safeCaptures.forEach(function (item) {
-        item.score += getSafeMaterialCapturePriority(game, item.move, color);
-      });
-      return finalizeRootMove(game, safeCaptures);
     }
 
     const bookMove = chooseOpeningBookMove(game, activeMoves, color, emergency);
@@ -1387,7 +1544,11 @@
       return null;
     }
 
-    return chooseMoveByLayerPriority(game, moves, game.turn());
+    try {
+      return chooseMoveByLayerPriority(game, moves, game.turn());
+    } finally {
+      activeBee1VisionCache = null;
+    }
   }
 
   function evaluateBee1Move(move) {
@@ -1397,10 +1558,25 @@
       return -100000;
     }
 
-    return enrichMoveCandidate(game, move, game.turn()).score;
+    activeBee1VisionCache = createBee1VisionCache(game);
+    try {
+      return enrichMoveCandidate(game, move, game.turn()).score;
+    } finally {
+      activeBee1VisionCache = null;
+    }
   }
 
   window.chooseBee1BotMove = chooseBee1BotMove;
   window.evaluateBee1Move = evaluateBee1Move;
   window.detectBee1Phase = detectBee1Phase;
+  window.Bee1Bot = {
+    chooseBee1Move: chooseBee1BotMove,
+    evaluateBee1Move: evaluateBee1Move,
+    detectBee1Phase: detectBee1Phase,
+    createBee1VisionCache: createBee1VisionCache,
+    evaluateSimpleExchangeAfterMove: evaluateSimpleExchangeAfterMove,
+    isSafeCapture: isSafeCapture,
+    isSafeDestinationAfterMove: isSafeDestinationAfterMove,
+    detectMaterialEmergency: detectMaterialEmergency
+  };
 })();

@@ -9,8 +9,10 @@
   <script src="bots/turtle1.js" defer></script>
   <script src="bots/turtle2.js" defer></script>
   <script src="bots/turtle3.js" defer></script>
+  <script src="bots/bee-vision.js" defer></script>
   <script src="bots/bee1.js" defer></script>
   <script src="bots/bee2.js" defer></script>
+  <script src="bots/bee3.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -21,6 +23,7 @@
       <aside class="left-panel">
         <section class="history-panel match-record-card">
         <h2 id="movesTitle">Lịch sử nước đi</h2>
+        <button id="copyHistoryButton" type="button">Copy biên bản</button>
         <div id="materialAdvantage" class="material-advantage" aria-live="polite">
           <span id="materialAdvantageLabel" class="material-advantage__label">Chênh lệch quân</span>
           <span id="materialAdvantageValue" class="material-advantage__value">Cân bằng</span>
@@ -67,6 +70,7 @@
               <option value="turtle-3">Turtle 3 - Thi lên lớp</option>
               <option value="bee-1">Bee 1 - Test</option>
               <option value="bee-2">Bee 2 - Thi lên lớp</option>
+              <option value="bee-3">Bee 3 - Boss cuối</option>
             </select>
           </label>
           <label>
